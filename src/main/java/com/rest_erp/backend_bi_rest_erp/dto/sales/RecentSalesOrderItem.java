@@ -13,6 +13,9 @@ import java.time.LocalDate;
 @AllArgsConstructor
 @Builder
 public class RecentSalesOrderItem {
+
+    private String currency;
+
     private String id;
     private String customer;
     private LocalDate date;

@@ -4,6 +4,7 @@ import com.rest_erp.backend_bi_rest_erp.dto.sales.PipelineItem;
 import com.rest_erp.backend_bi_rest_erp.dto.sales.RetentionItem;
 import com.rest_erp.backend_bi_rest_erp.dto.sales.RevenueByProductItem;
 import com.rest_erp.backend_bi_rest_erp.dto.sales.SalesKpiResponse;
+import com.rest_erp.backend_bi_rest_erp.repository.CommonRepository;
 import com.rest_erp.backend_bi_rest_erp.repository.sales.SalesKpiRepository;
 import com.rest_erp.backend_bi_rest_erp.tenant.TenantContext;
 import lombok.RequiredArgsConstructor;
@@ -21,10 +22,14 @@ import java.util.Map;
 public class SalesKpiService {
 
     private final SalesKpiRepository salesKpiRepository;
+    private final CommonRepository commonRepository;
 
     public SalesKpiResponse getSalesKpis(LocalDate startDate, LocalDate endDate) {
 
         Integer companyKey = TenantContext.getCompanyKey();
+
+
+        String currency = commonRepository.getCompanyCurrency(companyKey);
 
         BigDecimal totalRevenue = salesKpiRepository.getTotalRevenue(companyKey, startDate, endDate);
         Long numberOfDeals = salesKpiRepository.getNumberOfDeals(companyKey, startDate, endDate);
@@ -67,6 +72,7 @@ public class SalesKpiService {
                 .inactiveCustomers(inactiveCustomers)
                 .averageCustomerValue(averageCustomerValue)
                 .conversionRate(conversionRate != null ? conversionRate : BigDecimal.ZERO)
+                .currency(currency)
                 .build();
     }
 
@@ -118,6 +124,7 @@ public class SalesKpiService {
             LocalDate endDate
     ) {
         Integer companyKey = TenantContext.getCompanyKey();
+        String currency = commonRepository.getCompanyCurrency(companyKey);
 
         java.util.List<Object[]> rows = salesKpiRepository.getRecentSalesOrders(companyKey, startDate, endDate);
 
@@ -131,6 +138,7 @@ public class SalesKpiService {
                             .date(row[2] != null ? java.time.LocalDate.parse(row[2].toString()) : null)
                             .amount(row[3] != null ? new java.math.BigDecimal(row[3].toString()) : java.math.BigDecimal.ZERO)
                             .status(row[4] != null ? row[4].toString() : "")
+                            .currency(currency)
                             .build()
             );
         }
@@ -143,6 +151,7 @@ public class SalesKpiService {
             LocalDate endDate
     ) {
         Integer companyKey = TenantContext.getCompanyKey();
+        String currency = commonRepository.getCompanyCurrency(companyKey);
 
         java.util.List<Object[]> rows = salesKpiRepository.getTopSalespersons(companyKey, startDate, endDate);
 
@@ -154,6 +163,7 @@ public class SalesKpiService {
                     com.rest_erp.backend_bi_rest_erp.dto.sales.TopSalespersonItem.builder()
                             .name(row[0] != null ? row[0].toString() : "Unknown Salesperson")
                             .amount(row[1] != null ? new java.math.BigDecimal(row[1].toString()) : java.math.BigDecimal.ZERO)
+                            .currency(currency)
                             .build()
             );
         }
@@ -242,4 +252,6 @@ public class SalesKpiService {
 
         return result;
     }
+
+
 }

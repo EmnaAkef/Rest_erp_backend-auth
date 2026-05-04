@@ -1,4 +1,4 @@
-package com.rest_erp.backend_bi_rest_erp.dto.sales;
+package com.rest_erp.backend_bi_rest_erp.dto.hr;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -11,10 +11,8 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class TopSalespersonItem {
-
-    private String currency;
-
-    private String name;
-    private BigDecimal amount;
+public class SalaryBenchmarkItem {
+    private String department;
+    private BigDecimal averageSalary;
+    private BigDecimal maximumSalary;
 }

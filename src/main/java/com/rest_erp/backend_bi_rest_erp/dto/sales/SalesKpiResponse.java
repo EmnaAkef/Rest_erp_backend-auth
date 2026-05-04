@@ -13,6 +13,8 @@ import java.math.BigDecimal;
 @Builder
 public class SalesKpiResponse {
 
+    private String currency;
+
     private BigDecimal totalRevenue;
     private Long numberOfDeals;
     private BigDecimal winRate;
