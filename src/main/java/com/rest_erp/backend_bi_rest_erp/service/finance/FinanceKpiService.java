@@ -3,6 +3,7 @@ package com.rest_erp.backend_bi_rest_erp.service.finance;
 import com.rest_erp.backend_bi_rest_erp.dto.finance.FinanceKpiResponse;
 import com.rest_erp.backend_bi_rest_erp.repository.finance.FinanceKpiRepository;
 import com.rest_erp.backend_bi_rest_erp.tenant.TenantContext;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -14,18 +15,21 @@ import com.rest_erp.backend_bi_rest_erp.dto.finance.FinanceOutstandingInvoiceIte
 import com.rest_erp.backend_bi_rest_erp.dto.finance.FinanceLiabilityAssetItem;
 import com.rest_erp.backend_bi_rest_erp.dto.finance.FinanceAssetDistributionItem;
 import java.util.List;
+import com.rest_erp.backend_bi_rest_erp.repository.CommonRepository;
 @Service
+@RequiredArgsConstructor
 public class FinanceKpiService {
 
+    private final CommonRepository commonRepository;
     private final FinanceKpiRepository financeKpiRepository;
 
-    public FinanceKpiService(FinanceKpiRepository financeKpiRepository) {
-        this.financeKpiRepository = financeKpiRepository;
-    }
+
 
     public FinanceKpiResponse getFinanceKpis(LocalDate startDate, LocalDate endDate) {
 
         Integer companyKey = TenantContext.getCompanyKey();
+
+        String currency = commonRepository.getCompanyCurrency(companyKey);
 
         Integer startDateKey = toDateKey(startDate);
         Integer endDateKey = toDateKey(endDate);
@@ -65,24 +69,25 @@ public class FinanceKpiService {
                 currentLiabilities
         );
 
-        return new FinanceKpiResponse(
-                totalRevenue,
-                totalExpenses,
-                netProfit,
-                grossMarginPercentage,
-                cashBalance,
-                bankAccountBalance,
-                totalLiabilities,
-                liquidityRatio,
-                accountsReceivable,
-                accountsPayable,
-                numberOfOpenInvoices,
-                dueInvoices,
-                assetValue,
-                depreciationExpense,
-                vatCollected,
-                vatPayable
-        );
+        return FinanceKpiResponse.builder()
+                .currency(currency)
+                .totalRevenue(totalRevenue)
+                .totalExpenses(totalExpenses)
+                .netProfit(netProfit)
+                .grossMarginPercentage(grossMarginPercentage)
+                .cashBalance(cashBalance)
+                .bankAccountBalance(bankAccountBalance)
+                .totalLiabilities(totalLiabilities)
+                .liquidityRatio(liquidityRatio)
+                .accountsReceivable(accountsReceivable)
+                .accountsPayable(accountsPayable)
+                .numberOfOpenInvoices(numberOfOpenInvoices)
+                .dueInvoices(dueInvoices)
+                .assetValue(assetValue)
+                .depreciationExpense(depreciationExpense)
+                .vatCollected(vatCollected)
+                .vatPayable(vatPayable)
+                .build();
     }
 
     private BigDecimal calculateGrossMargin(BigDecimal revenue, BigDecimal expenses) {

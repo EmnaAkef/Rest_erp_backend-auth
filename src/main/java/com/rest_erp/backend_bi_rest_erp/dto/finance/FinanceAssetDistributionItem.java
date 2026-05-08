@@ -1,33 +1,21 @@
 package com.rest_erp.backend_bi_rest_erp.dto.finance;
 
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
 import java.math.BigDecimal;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 
 public class FinanceAssetDistributionItem {
 
     private String assetType;
     private BigDecimal assetValue;
 
-    public FinanceAssetDistributionItem() {
-    }
 
-    public FinanceAssetDistributionItem(String assetType, BigDecimal assetValue) {
-        this.assetType = assetType;
-        this.assetValue = assetValue;
-    }
-
-    public String getAssetType() {
-        return assetType;
-    }
-
-    public void setAssetType(String assetType) {
-        this.assetType = assetType;
-    }
-
-    public BigDecimal getAssetValue() {
-        return assetValue;
-    }
-
-    public void setAssetValue(BigDecimal assetValue) {
-        this.assetValue = assetValue;
-    }
 }
