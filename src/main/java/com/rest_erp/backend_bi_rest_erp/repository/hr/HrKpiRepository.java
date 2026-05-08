@@ -12,6 +12,7 @@ import java.util.List;
 public class HrKpiRepository {
 
     @PersistenceContext
+
     private EntityManager entityManager;
 
     public Long getTotalEmployees(Integer companyKey) {
@@ -131,96 +132,148 @@ public class HrKpiRepository {
 
     public BigDecimal getPresenceRate(Integer companyKey, LocalDate startDate, LocalDate endDate) {
 
-        String sql = """
+        StringBuilder sql = new StringBuilder("""
         SELECT 
             CASE 
-                WHEN SUM(f.scheduled_shift_count) = 0 THEN 0
-                ELSE (SUM(f.present_shift_count) * 100.0 / SUM(f.scheduled_shift_count))
+                WHEN COALESCE(SUM(f.scheduled_shift_count), 0) = 0 THEN 0
+                ELSE ROUND(
+                    COALESCE(SUM(f.present_shift_count), 0) * 100.0 
+                    / COALESCE(SUM(f.scheduled_shift_count), 0),
+                    2
+                )
             END
         FROM fact_attendance_shift f
         JOIN dim_date d ON d.date_key = f.date_key
         WHERE f.company_key = :companyKey
-    """;
+    """);
 
-        if (startDate != null && endDate != null) {
-            sql += " AND d.full_date BETWEEN :startDate AND :endDate";
+        if (startDate != null) {
+            sql.append(" AND d.full_date >= :startDate");
         }
 
-        Object result = entityManager.createNativeQuery(sql)
-                .setParameter("companyKey", companyKey)
-                .setParameter("startDate", startDate)
-                .setParameter("endDate", endDate)
-                .getSingleResult();
+        if (endDate != null) {
+            sql.append(" AND d.full_date <= :endDate");
+        }
+
+        var query = entityManager.createNativeQuery(sql.toString())
+                .setParameter("companyKey", companyKey);
+
+        if (startDate != null) {
+            query.setParameter("startDate", startDate);
+        }
+
+        if (endDate != null) {
+            query.setParameter("endDate", endDate);
+        }
+
+        Object result = query.getSingleResult();
 
         return result != null ? new BigDecimal(result.toString()) : BigDecimal.ZERO;
     }
 
     public BigDecimal getAbsenceRate(Integer companyKey, LocalDate startDate, LocalDate endDate) {
 
-        String sql = """
+        StringBuilder sql = new StringBuilder("""
         SELECT 
             CASE 
-                WHEN SUM(f.scheduled_shift_count) = 0 THEN 0
-                ELSE (SUM(f.absent_shift_count) * 100.0 / SUM(f.scheduled_shift_count))
+                WHEN COALESCE(SUM(f.scheduled_shift_count), 0) = 0 THEN 0
+                ELSE ROUND(
+                    COALESCE(SUM(f.absent_shift_count), 0) * 100.0 
+                    / COALESCE(SUM(f.scheduled_shift_count), 0),
+                    2
+                )
             END
         FROM fact_attendance_shift f
         JOIN dim_date d ON d.date_key = f.date_key
         WHERE f.company_key = :companyKey
-    """;
+    """);
 
-        if (startDate != null && endDate != null) {
-            sql += " AND d.full_date BETWEEN :startDate AND :endDate";
+        if (startDate != null) {
+            sql.append(" AND d.full_date >= :startDate");
         }
 
-        Object result = entityManager.createNativeQuery(sql)
-                .setParameter("companyKey", companyKey)
-                .setParameter("startDate", startDate)
-                .setParameter("endDate", endDate)
-                .getSingleResult();
+        if (endDate != null) {
+            sql.append(" AND d.full_date <= :endDate");
+        }
+
+        var query = entityManager.createNativeQuery(sql.toString())
+                .setParameter("companyKey", companyKey);
+
+        if (startDate != null) {
+            query.setParameter("startDate", startDate);
+        }
+
+        if (endDate != null) {
+            query.setParameter("endDate", endDate);
+        }
+
+        Object result = query.getSingleResult();
 
         return result != null ? new BigDecimal(result.toString()) : BigDecimal.ZERO;
     }
 
     public Long getLateCheckins(Integer companyKey, LocalDate startDate, LocalDate endDate) {
 
-        String sql = """
+        StringBuilder sql = new StringBuilder("""
         SELECT COALESCE(SUM(f.late_checkin_count), 0)
         FROM fact_attendance_shift f
         JOIN dim_date d ON d.date_key = f.date_key
         WHERE f.company_key = :companyKey
-    """;
+    """);
 
-        if (startDate != null && endDate != null) {
-            sql += " AND d.full_date BETWEEN :startDate AND :endDate";
+        if (startDate != null) {
+            sql.append(" AND d.full_date >= :startDate");
         }
 
-        Object result = entityManager.createNativeQuery(sql)
-                .setParameter("companyKey", companyKey)
-                .setParameter("startDate", startDate)
-                .setParameter("endDate", endDate)
-                .getSingleResult();
+        if (endDate != null) {
+            sql.append(" AND d.full_date <= :endDate");
+        }
 
-        return result != null ? Long.valueOf(result.toString()) : 0L;
+        var query = entityManager.createNativeQuery(sql.toString())
+                .setParameter("companyKey", companyKey);
+
+        if (startDate != null) {
+            query.setParameter("startDate", startDate);
+        }
+
+        if (endDate != null) {
+            query.setParameter("endDate", endDate);
+        }
+
+        Object result = query.getSingleResult();
+
+        return result != null ? ((Number) result).longValue() : 0L;
     }
 
     public BigDecimal getOvertimeHours(Integer companyKey, LocalDate startDate, LocalDate endDate) {
 
-        String sql = """
+        StringBuilder sql = new StringBuilder("""
         SELECT COALESCE(SUM(f.overtime_hours), 0)
         FROM fact_attendance_shift f
         JOIN dim_date d ON d.date_key = f.date_key
         WHERE f.company_key = :companyKey
-    """;
+    """);
 
-        if (startDate != null && endDate != null) {
-            sql += " AND d.full_date BETWEEN :startDate AND :endDate";
+        if (startDate != null) {
+            sql.append(" AND d.full_date >= :startDate");
         }
 
-        Object result = entityManager.createNativeQuery(sql)
-                .setParameter("companyKey", companyKey)
-                .setParameter("startDate", startDate)
-                .setParameter("endDate", endDate)
-                .getSingleResult();
+        if (endDate != null) {
+            sql.append(" AND d.full_date <= :endDate");
+        }
+
+        var query = entityManager.createNativeQuery(sql.toString())
+                .setParameter("companyKey", companyKey);
+
+        if (startDate != null) {
+            query.setParameter("startDate", startDate);
+        }
+
+        if (endDate != null) {
+            query.setParameter("endDate", endDate);
+        }
+
+        Object result = query.getSingleResult();
 
         return result != null ? new BigDecimal(result.toString()) : BigDecimal.ZERO;
     }
@@ -525,11 +578,18 @@ public class HrKpiRepository {
     public BigDecimal getAbsenteeismVolatilityIndex(Integer companyKey, LocalDate startDate, LocalDate endDate) {
 
         StringBuilder sql = new StringBuilder("""
-        SELECT COALESCE(VAR_POP(f.absence_rate_pct), 0)
-        FROM fact_absence_monthly f
-        JOIN dim_date d ON d.date_key = f.month_date_key
-        WHERE f.company_key = :companyKey
-          AND f.absence_rate_pct IS NOT NULL
+        WITH monthly_absence AS (
+            SELECT
+                DATE_TRUNC('month', d.full_date) AS month_date,
+                CASE
+                    WHEN COALESCE(SUM(f.scheduled_shift_count), 0) = 0 THEN 0
+                    ELSE
+                        COALESCE(SUM(f.absent_shift_count), 0) * 100.0
+                        / COALESCE(SUM(f.scheduled_shift_count), 0)
+                END AS absence_rate_pct
+            FROM fact_attendance_shift f
+            JOIN dim_date d ON d.date_key = f.date_key
+            WHERE f.company_key = :companyKey
     """);
 
         if (startDate != null) {
@@ -539,6 +599,13 @@ public class HrKpiRepository {
         if (endDate != null) {
             sql.append(" AND d.full_date <= :endDate");
         }
+
+        sql.append("""
+            GROUP BY DATE_TRUNC('month', d.full_date)
+        )
+        SELECT COALESCE(VAR_POP(absence_rate_pct), 0)
+        FROM monthly_absence
+    """);
 
         var query = entityManager.createNativeQuery(sql.toString())
                 .setParameter("companyKey", companyKey);
@@ -555,7 +622,6 @@ public class HrKpiRepository {
 
         return result != null ? new BigDecimal(result.toString()) : BigDecimal.ZERO;
     }
-
     public java.util.List<Object[]> getSalaryBenchmarking(
             Integer companyKey,
             LocalDate startDate,
