@@ -11,8 +11,9 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class OverviewTopCustomerItem {
+public class OverviewTopSalespersonItem {
 
-    private String customerName;
-    private BigDecimal revenue;
+    private String salespersonName;
+    private BigDecimal totalRevenue;
+    private Long dealsCount;
 }

@@ -11,6 +11,15 @@ import com.rest_erp.backend_bi_rest_erp.dto.overview.OverviewFinancialTrendItem;
 import java.util.List;
 import com.rest_erp.backend_bi_rest_erp.dto.overview.OverviewFinancialTrendItem;
 import com.rest_erp.backend_bi_rest_erp.dto.overview.OverviewCashSummaryItem;
+import com.rest_erp.backend_bi_rest_erp.dto.overview.OverviewPipelineFunnelItem;
+import com.rest_erp.backend_bi_rest_erp.dto.overview.OverviewDealStatusItem;
+import com.rest_erp.backend_bi_rest_erp.dto.overview.OverviewTopSalespersonItem;
+import com.rest_erp.backend_bi_rest_erp.dto.overview.OverviewAttendanceTrendItem;
+import com.rest_erp.backend_bi_rest_erp.dto.overview.OverviewDepartmentDistributionItem;
+import com.rest_erp.backend_bi_rest_erp.dto.overview.OverviewCustomerRetentionItem;
+import com.rest_erp.backend_bi_rest_erp.dto.overview.OverviewTopCustomerItem;
+import com.rest_erp.backend_bi_rest_erp.dto.overview.OverviewOperationalAlertItem;
+import com.rest_erp.backend_bi_rest_erp.dto.overview.OverviewExecutiveLedgerItem;
 @Service
 public class OverviewKpiService {
 
@@ -87,5 +96,81 @@ public class OverviewKpiService {
         Integer endDateKey = toDateKey(endDate);
 
         return overviewKpiRepository.getCashSummary(companyKey, startDateKey, endDateKey);
+    }
+    public List<OverviewPipelineFunnelItem> getSalesPipelineFunnel(LocalDate startDate, LocalDate endDate) {
+        Integer companyKey = TenantContext.getCompanyKey();
+
+        return overviewKpiRepository.getSalesPipelineFunnel(companyKey);
+    }
+    public List<OverviewDealStatusItem> getDealStatus(LocalDate startDate, LocalDate endDate) {
+        Integer companyKey = TenantContext.getCompanyKey();
+
+        return overviewKpiRepository.getDealStatus(companyKey);
+    }
+
+    public List<OverviewTopSalespersonItem> getTopSalesPerformers(LocalDate startDate, LocalDate endDate) {
+        Integer companyKey = TenantContext.getCompanyKey();
+
+        return overviewKpiRepository.getTopSalesPerformers(companyKey);
+    }
+
+    public List<OverviewAttendanceTrendItem> getAttendanceTrend(LocalDate startDate, LocalDate endDate) {
+        Integer companyKey = TenantContext.getCompanyKey();
+
+        Integer startDateKey = toDateKey(startDate);
+        Integer endDateKey = toDateKey(endDate);
+
+        return overviewKpiRepository.getAttendanceTrend(
+                companyKey,
+                startDateKey,
+                endDateKey
+        );
+    }
+
+    public List<OverviewDepartmentDistributionItem> getDepartmentDistribution() {
+        Integer companyKey = TenantContext.getCompanyKey();
+
+        return overviewKpiRepository.getDepartmentDistribution(companyKey);
+    }
+    public OverviewCustomerRetentionItem getCustomerRetention() {
+        Integer companyKey = TenantContext.getCompanyKey();
+
+        return overviewKpiRepository.getCustomerRetention(companyKey);
+    }
+    public List<OverviewTopCustomerItem> getTopCustomersByRevenue(LocalDate startDate, LocalDate endDate) {
+        Integer companyKey = TenantContext.getCompanyKey();
+
+        Integer startDateKey = toDateKey(startDate);
+        Integer endDateKey = toDateKey(endDate);
+
+        return overviewKpiRepository.getTopCustomersByRevenue(
+                companyKey,
+                startDateKey,
+                endDateKey
+        );
+    }
+    public List<OverviewOperationalAlertItem> getOperationalAlerts(LocalDate startDate, LocalDate endDate) {
+        Integer companyKey = TenantContext.getCompanyKey();
+
+        Integer startDateKey = toDateKey(startDate);
+        Integer endDateKey = toDateKey(endDate);
+
+        return overviewKpiRepository.getOperationalAlerts(
+                companyKey,
+                startDateKey,
+                endDateKey
+        );
+    }
+    public List<OverviewExecutiveLedgerItem> getExecutiveLedger(LocalDate startDate, LocalDate endDate) {
+        Integer companyKey = TenantContext.getCompanyKey();
+
+        Integer startDateKey = toDateKey(startDate);
+        Integer endDateKey = toDateKey(endDate);
+
+        return overviewKpiRepository.getExecutiveLedger(
+                companyKey,
+                startDateKey,
+                endDateKey
+        );
     }
 }

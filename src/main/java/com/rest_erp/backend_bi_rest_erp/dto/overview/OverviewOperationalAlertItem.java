@@ -11,8 +11,12 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class OverviewTopCustomerItem {
+public class OverviewOperationalAlertItem {
 
-    private String customerName;
-    private BigDecimal revenue;
+    private String category;
+    private String status;
+    private String title;
+    private BigDecimal value;
+    private String valueSuffix;
+    private String color;
 }
