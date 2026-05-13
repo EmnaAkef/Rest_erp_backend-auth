@@ -4,6 +4,7 @@ package com.rest_erp.backend_bi_rest_erp.repository.sales;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import org.springframework.stereotype.Repository;
+import com.rest_erp.backend_bi_rest_erp.dto.sales.SalesFilterRequest;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -15,12 +16,19 @@ public class SalesKpiRepository {
     @PersistenceContext
     private EntityManager entityManager;
 
-    public BigDecimal getTotalRevenue(Integer companyKey, LocalDate startDate, LocalDate endDate) {
+    public BigDecimal getTotalRevenue(
+            Integer companyKey,
+            LocalDate startDate,
+            LocalDate endDate,
+            SalesFilterRequest filters
+    ) {
 
         StringBuilder sql = new StringBuilder("""
         SELECT COALESCE(SUM(f.allocated_amount), 0) + COALESCE(SUM(f.invoice_total), 0)
         FROM fact_sales_financials f
         JOIN dim_date d ON d.date_key = f.date_key
+        LEFT JOIN dim_customer c ON c.customer_key = f.customer_key
+        LEFT JOIN dim_user u ON u.user_key = f.agent_user_key
         WHERE f.company_key = :companyKey
     """);
 
@@ -32,6 +40,28 @@ public class SalesKpiRepository {
             sql.append(" AND d.full_date <= :endDate");
         }
 
+        if (filters != null && filters.getCustomerId() != null) {
+            sql.append(" AND c.customer_id = :customerId");
+        }
+
+        if (filters != null && filters.getCustomerName() != null && !filters.getCustomerName().isBlank()) {
+            sql.append("""
+            AND COALESCE(
+                NULLIF(TRIM(c.organization_name), ''),
+                NULLIF(TRIM(c.contact_name), ''),
+                'Unknown Customer'
+            ) = :customerName
+        """);
+        }
+
+        if (filters != null && filters.getSalespersonKey() != null) {
+            sql.append(" AND f.agent_user_key = :salespersonKey");
+        }
+
+        if (filters != null && filters.getCustomerCategory() != null && !filters.getCustomerCategory().isBlank()) {
+            sql.append(" AND c.client_category = :customerCategory");
+        }
+
         var query = entityManager.createNativeQuery(sql.toString())
                 .setParameter("companyKey", companyKey);
 
@@ -43,19 +73,43 @@ public class SalesKpiRepository {
             query.setParameter("endDate", endDate);
         }
 
+        if (filters != null && filters.getCustomerId() != null) {
+            query.setParameter("customerId", filters.getCustomerId());
+        }
+
+        if (filters != null && filters.getCustomerName() != null && !filters.getCustomerName().isBlank()) {
+            query.setParameter("customerName", filters.getCustomerName());
+        }
+
+        if (filters != null && filters.getSalespersonKey() != null) {
+            query.setParameter("salespersonKey", filters.getSalespersonKey());
+        }
+
+        if (filters != null && filters.getCustomerCategory() != null && !filters.getCustomerCategory().isBlank()) {
+            query.setParameter("customerCategory", filters.getCustomerCategory());
+        }
+
         Object result = query.getSingleResult();
 
-        return result != null ? (BigDecimal) result : BigDecimal.ZERO;
+        return result != null ? new BigDecimal(result.toString()) : BigDecimal.ZERO;
     }
 
-    public Long getNumberOfDeals(Integer companyKey, LocalDate startDate, LocalDate endDate) {
+    public Long getNumberOfDeals(
+            Integer companyKey,
+            LocalDate startDate,
+            LocalDate endDate,
+            SalesFilterRequest filters
+    ) {
 
         StringBuilder sql = new StringBuilder("""
         SELECT COUNT(DISTINCT f.deal_id)
         FROM fact_deal f
         JOIN dim_date d ON d.date_key = f.close_date_key
+        LEFT JOIN dim_customer c ON c.customer_key = f.customer_key
+        LEFT JOIN dim_user u ON u.user_key = f.owner_user_key
+        LEFT JOIN dim_workstatus ws ON ws.workstatus_key = f.workstatus_key
         WHERE f.company_key = :companyKey
-        """);
+    """);
 
         if (startDate != null) {
             sql.append(" AND d.full_date >= :startDate");
@@ -65,6 +119,32 @@ public class SalesKpiRepository {
             sql.append(" AND d.full_date <= :endDate");
         }
 
+        if (filters != null && filters.getCustomerId() != null) {
+            sql.append(" AND c.customer_id = :customerId");
+        }
+
+        if (filters != null && filters.getCustomerName() != null && !filters.getCustomerName().isBlank()) {
+            sql.append("""
+            AND COALESCE(
+                NULLIF(TRIM(c.organization_name), ''),
+                NULLIF(TRIM(c.contact_name), ''),
+                'Unknown Customer'
+            ) = :customerName
+        """);
+        }
+
+        if (filters != null && filters.getSalespersonKey() != null) {
+            sql.append(" AND f.owner_user_key = :salespersonKey");
+        }
+
+        if (filters != null && filters.getWorkstatusLabel() != null && !filters.getWorkstatusLabel().isBlank()) {
+            sql.append(" AND ws.status_label = :workstatusLabel");
+        }
+
+        if (filters != null && filters.getCustomerCategory() != null && !filters.getCustomerCategory().isBlank()) {
+            sql.append(" AND c.client_category = :customerCategory");
+        }
+
         var query = entityManager.createNativeQuery(sql.toString())
                 .setParameter("companyKey", companyKey);
 
@@ -76,16 +156,37 @@ public class SalesKpiRepository {
             query.setParameter("endDate", endDate);
         }
 
-        Object result = query.getSingleResult();
-
-        if (result == null) {
-            return 0L;
+        if (filters != null && filters.getCustomerId() != null) {
+            query.setParameter("customerId", filters.getCustomerId());
         }
 
-        return ((Number) result).longValue();
+        if (filters != null && filters.getCustomerName() != null && !filters.getCustomerName().isBlank()) {
+            query.setParameter("customerName", filters.getCustomerName());
+        }
+
+        if (filters != null && filters.getSalespersonKey() != null) {
+            query.setParameter("salespersonKey", filters.getSalespersonKey());
+        }
+
+        if (filters != null && filters.getWorkstatusLabel() != null && !filters.getWorkstatusLabel().isBlank()) {
+            query.setParameter("workstatusLabel", filters.getWorkstatusLabel());
+        }
+
+        if (filters != null && filters.getCustomerCategory() != null && !filters.getCustomerCategory().isBlank()) {
+            query.setParameter("customerCategory", filters.getCustomerCategory());
+        }
+
+        Object result = query.getSingleResult();
+
+        return result != null ? ((Number) result).longValue() : 0L;
     }
 
-    public BigDecimal getWinRate(Integer companyKey, LocalDate startDate, LocalDate endDate) {
+    public BigDecimal getWinRate(
+            Integer companyKey,
+            LocalDate startDate,
+            LocalDate endDate,
+            SalesFilterRequest filters
+    ) {
 
         StringBuilder sql = new StringBuilder("""
         SELECT 
@@ -100,44 +201,9 @@ public class SalesKpiRepository {
                 ) / COUNT(CASE WHEN f.close_date_key IS NOT NULL THEN 1 END)
             END
         FROM fact_deal f
+        LEFT JOIN dim_customer c ON c.customer_key = f.customer_key
+        LEFT JOIN dim_user u ON u.user_key = f.owner_user_key
         LEFT JOIN dim_workstatus ws ON ws.workstatus_key = f.workstatus_key
-        LEFT JOIN dim_date d ON d.date_key = f.close_date_key
-        WHERE f.company_key = :companyKey
-        """);
-
-        if (startDate != null) {
-            sql.append(" AND d.full_date >= :startDate");
-        }
-
-        if (endDate != null) {
-            sql.append(" AND d.full_date <= :endDate");
-        }
-
-        var query = entityManager.createNativeQuery(sql.toString())
-                .setParameter("companyKey", companyKey);
-
-        if (startDate != null) {
-            query.setParameter("startDate", startDate);
-        }
-
-        if (endDate != null) {
-            query.setParameter("endDate", endDate);
-        }
-
-        Object result = query.getSingleResult();
-
-        if (result == null) {
-            return BigDecimal.ZERO;
-        }
-
-        return new BigDecimal(result.toString());
-    }
-
-    public BigDecimal getAverageDealValue(Integer companyKey, LocalDate startDate, LocalDate endDate) {
-
-        StringBuilder sql = new StringBuilder("""
-        SELECT COALESCE(AVG(f.deal_value), 0)
-        FROM fact_deal f
         LEFT JOIN dim_date d ON d.date_key = f.close_date_key
         WHERE f.company_key = :companyKey
     """);
@@ -150,6 +216,28 @@ public class SalesKpiRepository {
             sql.append(" AND d.full_date <= :endDate");
         }
 
+        if (filters != null && filters.getCustomerId() != null) {
+            sql.append(" AND c.customer_id = :customerId");
+        }
+
+        if (filters != null && filters.getCustomerName() != null && !filters.getCustomerName().isBlank()) {
+            sql.append("""
+            AND COALESCE(
+                NULLIF(TRIM(c.organization_name), ''),
+                NULLIF(TRIM(c.contact_name), ''),
+                'Unknown Customer'
+            ) = :customerName
+        """);
+        }
+
+        if (filters != null && filters.getSalespersonKey() != null) {
+            sql.append(" AND f.owner_user_key = :salespersonKey");
+        }
+
+        if (filters != null && filters.getCustomerCategory() != null && !filters.getCustomerCategory().isBlank()) {
+            sql.append(" AND c.client_category = :customerCategory");
+        }
+
         var query = entityManager.createNativeQuery(sql.toString())
                 .setParameter("companyKey", companyKey);
 
@@ -159,6 +247,22 @@ public class SalesKpiRepository {
 
         if (endDate != null) {
             query.setParameter("endDate", endDate);
+        }
+
+        if (filters != null && filters.getCustomerId() != null) {
+            query.setParameter("customerId", filters.getCustomerId());
+        }
+
+        if (filters != null && filters.getCustomerName() != null && !filters.getCustomerName().isBlank()) {
+            query.setParameter("customerName", filters.getCustomerName());
+        }
+
+        if (filters != null && filters.getSalespersonKey() != null) {
+            query.setParameter("salespersonKey", filters.getSalespersonKey());
+        }
+
+        if (filters != null && filters.getCustomerCategory() != null && !filters.getCustomerCategory().isBlank()) {
+            query.setParameter("customerCategory", filters.getCustomerCategory());
         }
 
         Object result = query.getSingleResult();
@@ -170,14 +274,22 @@ public class SalesKpiRepository {
         return new BigDecimal(result.toString());
     }
 
-    public Long getSalesOrdersCount(Integer companyKey, LocalDate startDate, LocalDate endDate) {
+    public BigDecimal getAverageDealValue(
+            Integer companyKey,
+            LocalDate startDate,
+            LocalDate endDate,
+            SalesFilterRequest filters
+    ) {
 
         StringBuilder sql = new StringBuilder("""
-        SELECT COUNT(DISTINCT f.sell_order_id)
-        FROM fact_sales_order f
-        LEFT JOIN dim_date d ON d.date_key = f.date_key
+        SELECT COALESCE(AVG(f.deal_value), 0)
+        FROM fact_deal f
+        LEFT JOIN dim_customer c ON c.customer_key = f.customer_key
+        LEFT JOIN dim_user u ON u.user_key = f.owner_user_key
+        LEFT JOIN dim_date d ON d.date_key = f.close_date_key
+        LEFT JOIN dim_workstatus ws ON ws.workstatus_key = f.workstatus_key
         WHERE f.company_key = :companyKey
-        """);
+    """);
 
         if (startDate != null) {
             sql.append(" AND d.full_date >= :startDate");
@@ -185,6 +297,32 @@ public class SalesKpiRepository {
 
         if (endDate != null) {
             sql.append(" AND d.full_date <= :endDate");
+        }
+
+        if (filters != null && filters.getCustomerId() != null) {
+            sql.append(" AND c.customer_id = :customerId");
+        }
+
+        if (filters != null && filters.getCustomerName() != null && !filters.getCustomerName().isBlank()) {
+            sql.append("""
+            AND COALESCE(
+                NULLIF(TRIM(c.organization_name), ''),
+                NULLIF(TRIM(c.contact_name), ''),
+                'Unknown Customer'
+            ) = :customerName
+        """);
+        }
+
+        if (filters != null && filters.getSalespersonKey() != null) {
+            sql.append(" AND f.owner_user_key = :salespersonKey");
+        }
+
+        if (filters != null && filters.getWorkstatusLabel() != null && !filters.getWorkstatusLabel().isBlank()) {
+            sql.append(" AND ws.status_label = :workstatusLabel");
+        }
+
+        if (filters != null && filters.getCustomerCategory() != null && !filters.getCustomerCategory().isBlank()) {
+            sql.append(" AND c.client_category = :customerCategory");
         }
 
         var query = entityManager.createNativeQuery(sql.toString())
@@ -198,25 +336,116 @@ public class SalesKpiRepository {
             query.setParameter("endDate", endDate);
         }
 
-        Object result = query.getSingleResult();
-
-        if (result == null) {
-            return 0L;
+        if (filters != null && filters.getCustomerId() != null) {
+            query.setParameter("customerId", filters.getCustomerId());
         }
 
-        return ((Number) result).longValue();
+        if (filters != null && filters.getCustomerName() != null && !filters.getCustomerName().isBlank()) {
+            query.setParameter("customerName", filters.getCustomerName());
+        }
+
+        if (filters != null && filters.getSalespersonKey() != null) {
+            query.setParameter("salespersonKey", filters.getSalespersonKey());
+        }
+
+        if (filters != null && filters.getWorkstatusLabel() != null && !filters.getWorkstatusLabel().isBlank()) {
+            query.setParameter("workstatusLabel", filters.getWorkstatusLabel());
+        }
+
+        if (filters != null && filters.getCustomerCategory() != null && !filters.getCustomerCategory().isBlank()) {
+            query.setParameter("customerCategory", filters.getCustomerCategory());
+        }
+
+        Object result = query.getSingleResult();
+
+        return result != null ? new BigDecimal(result.toString()) : BigDecimal.ZERO;
     }
 
-    public BigDecimal getOutstandingReceivables(Integer companyKey, LocalDate startDate, LocalDate endDate) {
+    public Long getSalesOrdersCount(
+            Integer companyKey,
+            LocalDate startDate,
+            LocalDate endDate,
+            SalesFilterRequest filters
+    ) {
+
+        StringBuilder sql = new StringBuilder("""
+        SELECT COUNT(DISTINCT f.sell_order_id)
+        FROM fact_sales_order f
+        LEFT JOIN dim_date d ON d.date_key = f.date_key
+        LEFT JOIN dim_customer c ON c.customer_key = f.customer_key
+        WHERE f.company_key = :companyKey
+    """);
+
+        if (startDate != null) {
+            sql.append(" AND d.full_date >= :startDate");
+        }
+
+        if (endDate != null) {
+            sql.append(" AND d.full_date <= :endDate");
+        }
+
+        if (filters != null && filters.getCustomerId() != null) {
+            sql.append(" AND c.customer_id = :customerId");
+        }
+
+        if (filters != null && filters.getCustomerName() != null && !filters.getCustomerName().isBlank()) {
+            sql.append("""
+            AND COALESCE(
+                NULLIF(TRIM(c.organization_name), ''),
+                NULLIF(TRIM(c.contact_name), ''),
+                'Unknown Customer'
+            ) = :customerName
+        """);
+        }
+
+        if (filters != null && filters.getCustomerCategory() != null && !filters.getCustomerCategory().isBlank()) {
+            sql.append(" AND c.client_category = :customerCategory");
+        }
+
+        var query = entityManager.createNativeQuery(sql.toString())
+                .setParameter("companyKey", companyKey);
+
+        if (startDate != null) {
+            query.setParameter("startDate", startDate);
+        }
+
+        if (endDate != null) {
+            query.setParameter("endDate", endDate);
+        }
+
+        if (filters != null && filters.getCustomerId() != null) {
+            query.setParameter("customerId", filters.getCustomerId());
+        }
+
+        if (filters != null && filters.getCustomerName() != null && !filters.getCustomerName().isBlank()) {
+            query.setParameter("customerName", filters.getCustomerName());
+        }
+
+        if (filters != null && filters.getCustomerCategory() != null && !filters.getCustomerCategory().isBlank()) {
+            query.setParameter("customerCategory", filters.getCustomerCategory());
+        }
+
+        Object result = query.getSingleResult();
+
+        return result != null ? ((Number) result).longValue() : 0L;
+    }
+
+    public BigDecimal getOutstandingReceivables(
+            Integer companyKey,
+            LocalDate startDate,
+            LocalDate endDate,
+            SalesFilterRequest filters
+    ) {
 
         StringBuilder sql = new StringBuilder("""
         SELECT COALESCE(SUM(f.total), 0)
         FROM fact_invoice f
         JOIN dim_invoice_status s ON s.status_key = f.status_key
         LEFT JOIN dim_date d ON d.date_key = f.date_key
+        LEFT JOIN dim_customer c ON c.customer_key = f.customer_key
         WHERE f.company_key = :companyKey
           AND s.status_group = 'PENDING'
-        """);
+    """);
 
         if (startDate != null) {
             sql.append(" AND d.full_date >= :startDate");
@@ -224,6 +453,24 @@ public class SalesKpiRepository {
 
         if (endDate != null) {
             sql.append(" AND d.full_date <= :endDate");
+        }
+
+        if (filters != null && filters.getCustomerId() != null) {
+            sql.append(" AND c.customer_id = :customerId");
+        }
+
+        if (filters != null && filters.getCustomerName() != null && !filters.getCustomerName().isBlank()) {
+            sql.append("""
+            AND COALESCE(
+                NULLIF(TRIM(c.organization_name), ''),
+                NULLIF(TRIM(c.contact_name), ''),
+                'Unknown Customer'
+            ) = :customerName
+        """);
+        }
+
+        if (filters != null && filters.getCustomerCategory() != null && !filters.getCustomerCategory().isBlank()) {
+            sql.append(" AND c.client_category = :customerCategory");
         }
 
         var query = entityManager.createNativeQuery(sql.toString())
@@ -237,58 +484,186 @@ public class SalesKpiRepository {
             query.setParameter("endDate", endDate);
         }
 
-        Object result = query.getSingleResult();
-
-        if (result == null) {
-            return BigDecimal.ZERO;
+        if (filters != null && filters.getCustomerId() != null) {
+            query.setParameter("customerId", filters.getCustomerId());
         }
 
-        return new BigDecimal(result.toString());
-    }
+        if (filters != null && filters.getCustomerName() != null && !filters.getCustomerName().isBlank()) {
+            query.setParameter("customerName", filters.getCustomerName());
+        }
 
-    public Long getPipelineDealsCount(Integer companyKey) {
+        if (filters != null && filters.getCustomerCategory() != null && !filters.getCustomerCategory().isBlank()) {
+            query.setParameter("customerCategory", filters.getCustomerCategory());
+        }
 
-        String sql = """
-        SELECT COUNT(DISTINCT f.deal_id)
-        FROM fact_deal f
-        JOIN dim_workstatus w ON w.workstatus_key = f.workstatus_key
-        WHERE f.company_key = :companyKey
-          AND COALESCE(f.is_archived, false) = false
-          AND w.status_label IN ('Generated', 'Initial Contact')
-    """;
-
-        Object result = entityManager.createNativeQuery(sql)
-                .setParameter("companyKey", companyKey)
-                .getSingleResult();
-
-        return result != null ? ((Number) result).longValue() : 0L;
-    }
-
-    public BigDecimal getPipelineValue(Integer companyKey) {
-
-        String sql = """
-        SELECT COALESCE(SUM(f.deal_value), 0)
-        FROM fact_deal f
-        JOIN dim_workstatus w ON w.workstatus_key = f.workstatus_key
-        WHERE f.company_key = :companyKey
-          AND COALESCE(f.is_archived, false) = false
-          AND w.status_label IN ('Generated', 'Initial Contact')
-    """;
-
-        Object result = entityManager.createNativeQuery(sql)
-                .setParameter("companyKey", companyKey)
-                .getSingleResult();
+        Object result = query.getSingleResult();
 
         return result != null ? new BigDecimal(result.toString()) : BigDecimal.ZERO;
     }
 
-    public Long getActiveCustomers(Integer companyKey, LocalDate startDate, LocalDate endDate) {
+    public Long getPipelineDealsCount(
+            Integer companyKey,
+            LocalDate startDate,
+            LocalDate endDate,
+            SalesFilterRequest filters
+    ) {
 
         StringBuilder sql = new StringBuilder("""
-        SELECT COUNT(DISTINCT f.customer_key)
+        SELECT COUNT(DISTINCT f.deal_id)
+        FROM fact_deal f
+        JOIN dim_workstatus w ON w.workstatus_key = f.workstatus_key
+        LEFT JOIN dim_date d ON d.date_key = f.close_date_key
+        LEFT JOIN dim_customer c ON c.customer_key = f.customer_key
+        LEFT JOIN dim_user u ON u.user_key = f.owner_user_key
+        WHERE f.company_key = :companyKey
+          AND COALESCE(f.is_archived, false) = false
+          AND w.status_label IN ('Generated', 'Initial Contact', 'Backlog', 'To Do', 'In Progress', 'In Review')
+    """);
+
+        if (startDate != null) {
+            sql.append(" AND d.full_date >= :startDate");
+        }
+
+        if (endDate != null) {
+            sql.append(" AND d.full_date <= :endDate");
+        }
+
+        if (filters != null && filters.getCustomerName() != null && !filters.getCustomerName().isBlank()) {
+            sql.append("""
+            AND COALESCE(
+                NULLIF(TRIM(c.organization_name), ''),
+                NULLIF(TRIM(c.contact_name), ''),
+                'Unknown Customer'
+            ) = :customerName
+        """);
+        }
+
+        if (filters != null && filters.getSalespersonKey() != null) {
+            sql.append(" AND f.owner_user_key = :salespersonKey");
+        }
+
+        if (filters != null && filters.getCustomerCategory() != null && !filters.getCustomerCategory().isBlank()) {
+            sql.append(" AND c.client_category = :customerCategory");
+        }
+
+        var query = entityManager.createNativeQuery(sql.toString())
+                .setParameter("companyKey", companyKey);
+
+        if (startDate != null) {
+            query.setParameter("startDate", startDate);
+        }
+
+        if (endDate != null) {
+            query.setParameter("endDate", endDate);
+        }
+
+        if (filters != null && filters.getCustomerName() != null && !filters.getCustomerName().isBlank()) {
+            query.setParameter("customerName", filters.getCustomerName());
+        }
+
+        if (filters != null && filters.getSalespersonKey() != null) {
+            query.setParameter("salespersonKey", filters.getSalespersonKey());
+        }
+
+        if (filters != null && filters.getCustomerCategory() != null && !filters.getCustomerCategory().isBlank()) {
+            query.setParameter("customerCategory", filters.getCustomerCategory());
+        }
+
+        Object result = query.getSingleResult();
+
+        return result != null ? ((Number) result).longValue() : 0L;
+    }
+
+    public BigDecimal getPipelineValue(
+            Integer companyKey,
+            LocalDate startDate,
+            LocalDate endDate,
+            SalesFilterRequest filters
+    ) {
+
+        StringBuilder sql = new StringBuilder("""
+        SELECT COALESCE(SUM(f.deal_value), 0)
+        FROM fact_deal f
+        JOIN dim_workstatus w ON w.workstatus_key = f.workstatus_key
+        LEFT JOIN dim_date d ON d.date_key = f.close_date_key
+        LEFT JOIN dim_customer c ON c.customer_key = f.customer_key
+        LEFT JOIN dim_user u ON u.user_key = f.owner_user_key
+        WHERE f.company_key = :companyKey
+          AND COALESCE(f.is_archived, false) = false
+          AND w.status_label IN ('Generated', 'Initial Contact', 'Backlog', 'To Do', 'In Progress', 'In Review')
+    """);
+
+        if (startDate != null) {
+            sql.append(" AND d.full_date >= :startDate");
+        }
+
+        if (endDate != null) {
+            sql.append(" AND d.full_date <= :endDate");
+        }
+
+        if (filters != null && filters.getCustomerName() != null && !filters.getCustomerName().isBlank()) {
+            sql.append("""
+            AND COALESCE(
+                NULLIF(TRIM(c.organization_name), ''),
+                NULLIF(TRIM(c.contact_name), ''),
+                'Unknown Customer'
+            ) = :customerName
+        """);
+        }
+
+        if (filters != null && filters.getSalespersonKey() != null) {
+            sql.append(" AND f.owner_user_key = :salespersonKey");
+        }
+
+        if (filters != null && filters.getCustomerCategory() != null && !filters.getCustomerCategory().isBlank()) {
+            sql.append(" AND c.client_category = :customerCategory");
+        }
+
+        var query = entityManager.createNativeQuery(sql.toString())
+                .setParameter("companyKey", companyKey);
+
+        if (startDate != null) {
+            query.setParameter("startDate", startDate);
+        }
+
+        if (endDate != null) {
+            query.setParameter("endDate", endDate);
+        }
+
+        if (filters != null && filters.getCustomerName() != null && !filters.getCustomerName().isBlank()) {
+            query.setParameter("customerName", filters.getCustomerName());
+        }
+
+        if (filters != null && filters.getSalespersonKey() != null) {
+            query.setParameter("salespersonKey", filters.getSalespersonKey());
+        }
+
+        if (filters != null && filters.getCustomerCategory() != null && !filters.getCustomerCategory().isBlank()) {
+            query.setParameter("customerCategory", filters.getCustomerCategory());
+        }
+
+        Object result = query.getSingleResult();
+
+        return result != null ? new BigDecimal(result.toString()) : BigDecimal.ZERO;
+    }
+
+    public Long getActiveCustomers(
+            Integer companyKey,
+            LocalDate startDate,
+            LocalDate endDate,
+            SalesFilterRequest filters
+    ) {
+
+        StringBuilder sql = new StringBuilder("""
+        SELECT COUNT(DISTINCT COALESCE(
+            NULLIF(TRIM(c.organization_name), ''),
+            NULLIF(TRIM(c.contact_name), ''),
+            'Unknown Customer'
+        ))
         FROM fact_invoice f
         JOIN dim_invoice_status s ON s.status_key = f.status_key
         JOIN dim_date d ON d.date_key = f.date_key
+        LEFT JOIN dim_customer c ON c.customer_key = f.customer_key
         WHERE f.company_key = :companyKey
           AND s.status_group = 'VALIDATED'
     """);
@@ -301,6 +676,24 @@ public class SalesKpiRepository {
             sql.append(" AND d.full_date <= :endDate");
         }
 
+        if (filters != null && filters.getCustomerId() != null) {
+            sql.append(" AND c.customer_id = :customerId");
+        }
+
+        if (filters != null && filters.getCustomerName() != null && !filters.getCustomerName().isBlank()) {
+            sql.append("""
+            AND COALESCE(
+                NULLIF(TRIM(c.organization_name), ''),
+                NULLIF(TRIM(c.contact_name), ''),
+                'Unknown Customer'
+            ) = :customerName
+        """);
+        }
+
+        if (filters != null && filters.getCustomerCategory() != null && !filters.getCustomerCategory().isBlank()) {
+            sql.append(" AND c.client_category = :customerCategory");
+        }
+
         var query = entityManager.createNativeQuery(sql.toString())
                 .setParameter("companyKey", companyKey);
 
@@ -312,35 +705,82 @@ public class SalesKpiRepository {
             query.setParameter("endDate", endDate);
         }
 
+        if (filters != null && filters.getCustomerId() != null) {
+            query.setParameter("customerId", filters.getCustomerId());
+        }
+
+        if (filters != null && filters.getCustomerName() != null && !filters.getCustomerName().isBlank()) {
+            query.setParameter("customerName", filters.getCustomerName());
+        }
+
+        if (filters != null && filters.getCustomerCategory() != null && !filters.getCustomerCategory().isBlank()) {
+            query.setParameter("customerCategory", filters.getCustomerCategory());
+        }
+
         Object result = query.getSingleResult();
 
-        if (result == null) {
-            return 0L;
-        }
-
-        return ((Number) result).longValue();
+        return result != null ? ((Number) result).longValue() : 0L;
     }
 
-    public Long getTotalCustomers(Integer companyKey) {
+    public Long getTotalCustomers(
+            Integer companyKey,
+            SalesFilterRequest filters
+    ) {
 
-        String sql = """
-        SELECT COUNT(DISTINCT c.customer_key)
+        StringBuilder sql = new StringBuilder("""
+        SELECT COUNT(DISTINCT COALESCE(
+            NULLIF(TRIM(c.organization_name), ''),
+            NULLIF(TRIM(c.contact_name), ''),
+            'Unknown Customer'
+        ))
         FROM dim_customer c
         WHERE c.company_key = :companyKey
-        """;
+    """);
 
-        Object result = entityManager.createNativeQuery(sql)
-                .setParameter("companyKey", companyKey)
-                .getSingleResult();
-
-        if (result == null) {
-            return 0L;
+        if (filters != null && filters.getCustomerId() != null) {
+            sql.append(" AND c.customer_id = :customerId");
         }
 
-        return ((Number) result).longValue();
+        if (filters != null && filters.getCustomerName() != null && !filters.getCustomerName().isBlank()) {
+            sql.append("""
+            AND COALESCE(
+                NULLIF(TRIM(c.organization_name), ''),
+                NULLIF(TRIM(c.contact_name), ''),
+                'Unknown Customer'
+            ) = :customerName
+        """);
+        }
+
+        if (filters != null && filters.getCustomerCategory() != null && !filters.getCustomerCategory().isBlank()) {
+            sql.append(" AND c.client_category = :customerCategory");
+        }
+
+        var query = entityManager.createNativeQuery(sql.toString())
+                .setParameter("companyKey", companyKey);
+
+        if (filters != null && filters.getCustomerId() != null) {
+            query.setParameter("customerId", filters.getCustomerId());
+        }
+
+        if (filters != null && filters.getCustomerName() != null && !filters.getCustomerName().isBlank()) {
+            query.setParameter("customerName", filters.getCustomerName());
+        }
+
+        if (filters != null && filters.getCustomerCategory() != null && !filters.getCustomerCategory().isBlank()) {
+            query.setParameter("customerCategory", filters.getCustomerCategory());
+        }
+
+        Object result = query.getSingleResult();
+
+        return result != null ? ((Number) result).longValue() : 0L;
     }
 
-    public BigDecimal getConversionRate(Integer companyKey, LocalDate startDate, LocalDate endDate) {
+    public BigDecimal getConversionRate(
+            Integer companyKey,
+            LocalDate startDate,
+            LocalDate endDate,
+            SalesFilterRequest filters
+    ) {
 
         StringBuilder sql = new StringBuilder("""
         SELECT
@@ -352,6 +792,7 @@ public class SalesKpiRepository {
             END
         FROM fact_sales_order f
         LEFT JOIN dim_date d ON d.date_key = f.date_key
+        LEFT JOIN dim_customer c ON c.customer_key = f.customer_key
         WHERE f.company_key = :companyKey
     """);
 
@@ -361,6 +802,24 @@ public class SalesKpiRepository {
 
         if (endDate != null) {
             sql.append(" AND d.full_date <= :endDate");
+        }
+
+        if (filters != null && filters.getCustomerId() != null) {
+            sql.append(" AND c.customer_id = :customerId");
+        }
+
+        if (filters != null && filters.getCustomerName() != null && !filters.getCustomerName().isBlank()) {
+            sql.append("""
+            AND COALESCE(
+                NULLIF(TRIM(c.organization_name), ''),
+                NULLIF(TRIM(c.contact_name), ''),
+                'Unknown Customer'
+            ) = :customerName
+        """);
+        }
+
+        if (filters != null && filters.getCustomerCategory() != null && !filters.getCustomerCategory().isBlank()) {
+            sql.append(" AND c.client_category = :customerCategory");
         }
 
         var query = entityManager.createNativeQuery(sql.toString())
@@ -374,16 +833,29 @@ public class SalesKpiRepository {
             query.setParameter("endDate", endDate);
         }
 
-        Object result = query.getSingleResult();
-
-        if (result == null) {
-            return BigDecimal.ZERO;
+        if (filters != null && filters.getCustomerId() != null) {
+            query.setParameter("customerId", filters.getCustomerId());
         }
 
-        return new BigDecimal(result.toString());
+        if (filters != null && filters.getCustomerName() != null && !filters.getCustomerName().isBlank()) {
+            query.setParameter("customerName", filters.getCustomerName());
+        }
+
+        if (filters != null && filters.getCustomerCategory() != null && !filters.getCustomerCategory().isBlank()) {
+            query.setParameter("customerCategory", filters.getCustomerCategory());
+        }
+
+        Object result = query.getSingleResult();
+
+        return result != null ? new BigDecimal(result.toString()) : BigDecimal.ZERO;
     }
 
-    public java.util.List<Object[]> getRevenueTrend(Integer companyKey, LocalDate startDate, LocalDate endDate) {
+    public List<Object[]> getRevenueTrend(
+            Integer companyKey,
+            LocalDate startDate,
+            LocalDate endDate,
+            SalesFilterRequest filters
+    ) {
 
         StringBuilder sql = new StringBuilder("""
         SELECT 
@@ -391,6 +863,8 @@ public class SalesKpiRepository {
             COALESCE(SUM(f.allocated_amount), 0) + COALESCE(SUM(f.invoice_total), 0) AS value
         FROM fact_sales_financials f
         JOIN dim_date d ON d.date_key = f.date_key
+        LEFT JOIN dim_customer c ON c.customer_key = f.customer_key
+        LEFT JOIN dim_user u ON u.user_key = f.agent_user_key
         WHERE f.company_key = :companyKey
     """);
 
@@ -400,6 +874,24 @@ public class SalesKpiRepository {
 
         if (endDate != null) {
             sql.append(" AND d.full_date <= :endDate");
+        }
+
+        if (filters != null && filters.getCustomerName() != null && !filters.getCustomerName().isBlank()) {
+            sql.append("""
+            AND COALESCE(
+                NULLIF(TRIM(c.organization_name), ''),
+                NULLIF(TRIM(c.contact_name), ''),
+                'Unknown Customer'
+            ) = :customerName
+        """);
+        }
+
+        if (filters != null && filters.getSalespersonKey() != null) {
+            sql.append(" AND f.agent_user_key = :salespersonKey");
+        }
+
+        if (filters != null && filters.getCustomerCategory() != null && !filters.getCustomerCategory().isBlank()) {
+            sql.append(" AND c.client_category = :customerCategory");
         }
 
         sql.append("""
@@ -418,23 +910,37 @@ public class SalesKpiRepository {
             query.setParameter("endDate", endDate);
         }
 
+        if (filters != null && filters.getCustomerName() != null && !filters.getCustomerName().isBlank()) {
+            query.setParameter("customerName", filters.getCustomerName());
+        }
+
+        if (filters != null && filters.getSalespersonKey() != null) {
+            query.setParameter("salespersonKey", filters.getSalespersonKey());
+        }
+
+        if (filters != null && filters.getCustomerCategory() != null && !filters.getCustomerCategory().isBlank()) {
+            query.setParameter("customerCategory", filters.getCustomerCategory());
+        }
+
         return query.getResultList();
     }
 
-    public java.util.List<Object[]> getPipelineDistribution(
+    public List<Object[]> getPipelineDistribution(
             Integer companyKey,
             LocalDate startDate,
-            LocalDate endDate
+            LocalDate endDate,
+            SalesFilterRequest filters
     ) {
+
         StringBuilder sql = new StringBuilder("""
         SELECT 
             w.status_label,
             COUNT(DISTINCT f.deal_id) AS total_deals
         FROM fact_deal f
-        JOIN dim_workstatus w 
-            ON w.workstatus_key = f.workstatus_key
-        JOIN dim_date d
-            ON d.date_key = f.close_date_key
+        JOIN dim_workstatus w ON w.workstatus_key = f.workstatus_key
+        JOIN dim_date d ON d.date_key = f.close_date_key
+        LEFT JOIN dim_customer c ON c.customer_key = f.customer_key
+        LEFT JOIN dim_user u ON u.user_key = f.owner_user_key
         WHERE f.company_key = :companyKey
           AND COALESCE(f.is_archived, false) = false
           AND w.status_label IN (
@@ -446,7 +952,8 @@ public class SalesKpiRepository {
               'In Review',
               'Done',
               'Win',
-              'Lost'
+              'Lost',
+              'Blocked'
           )
     """);
 
@@ -458,6 +965,28 @@ public class SalesKpiRepository {
             sql.append(" AND d.full_date <= :endDate");
         }
 
+        if (filters != null && filters.getCustomerName() != null && !filters.getCustomerName().isBlank()) {
+            sql.append("""
+            AND COALESCE(
+                NULLIF(TRIM(c.organization_name), ''),
+                NULLIF(TRIM(c.contact_name), ''),
+                'Unknown Customer'
+            ) = :customerName
+        """);
+        }
+
+        if (filters != null && filters.getSalespersonKey() != null) {
+            sql.append(" AND f.owner_user_key = :salespersonKey");
+        }
+
+        if (filters != null && filters.getWorkstatusLabel() != null && !filters.getWorkstatusLabel().isBlank()) {
+            sql.append(" AND w.status_label = :workstatusLabel");
+        }
+
+        if (filters != null && filters.getCustomerCategory() != null && !filters.getCustomerCategory().isBlank()) {
+            sql.append(" AND c.client_category = :customerCategory");
+        }
+
         sql.append("""
         GROUP BY w.status_label
         ORDER BY CASE w.status_label
@@ -467,10 +996,11 @@ public class SalesKpiRepository {
             WHEN 'To Do' THEN 4
             WHEN 'In Progress' THEN 5
             WHEN 'In Review' THEN 6
-            WHEN 'Done' THEN 7
-            WHEN 'Win' THEN 8
-            WHEN 'Lost' THEN 9
-            ELSE 10
+            WHEN 'Blocked' THEN 7
+            WHEN 'Done' THEN 8
+            WHEN 'Win' THEN 9
+            WHEN 'Lost' THEN 10
+            ELSE 11
         END
     """);
 
@@ -485,14 +1015,32 @@ public class SalesKpiRepository {
             query.setParameter("endDate", endDate);
         }
 
+        if (filters != null && filters.getCustomerName() != null && !filters.getCustomerName().isBlank()) {
+            query.setParameter("customerName", filters.getCustomerName());
+        }
+
+        if (filters != null && filters.getSalespersonKey() != null) {
+            query.setParameter("salespersonKey", filters.getSalespersonKey());
+        }
+
+        if (filters != null && filters.getWorkstatusLabel() != null && !filters.getWorkstatusLabel().isBlank()) {
+            query.setParameter("workstatusLabel", filters.getWorkstatusLabel());
+        }
+
+        if (filters != null && filters.getCustomerCategory() != null && !filters.getCustomerCategory().isBlank()) {
+            query.setParameter("customerCategory", filters.getCustomerCategory());
+        }
+
         return query.getResultList();
     }
 
-    public java.util.List<Object[]> getRecentSalesOrders(
+    public List<Object[]> getRecentSalesOrders(
             Integer companyKey,
             LocalDate startDate,
-            LocalDate endDate
+            LocalDate endDate,
+            SalesFilterRequest filters
     ) {
+
         StringBuilder sql = new StringBuilder("""
         SELECT 
             f.sell_order_id,
@@ -517,6 +1065,20 @@ public class SalesKpiRepository {
             sql.append(" AND d.full_date <= :endDate");
         }
 
+        if (filters != null && filters.getCustomerName() != null && !filters.getCustomerName().isBlank()) {
+            sql.append("""
+            AND COALESCE(
+                NULLIF(TRIM(c.organization_name), ''),
+                NULLIF(TRIM(c.contact_name), ''),
+                'Unknown Customer'
+            ) = :customerName
+        """);
+        }
+
+        if (filters != null && filters.getCustomerCategory() != null && !filters.getCustomerCategory().isBlank()) {
+            sql.append(" AND c.client_category = :customerCategory");
+        }
+
         sql.append("""
         GROUP BY 
             f.sell_order_id,
@@ -539,20 +1101,31 @@ public class SalesKpiRepository {
             query.setParameter("endDate", endDate);
         }
 
+        if (filters != null && filters.getCustomerName() != null && !filters.getCustomerName().isBlank()) {
+            query.setParameter("customerName", filters.getCustomerName());
+        }
+
+        if (filters != null && filters.getCustomerCategory() != null && !filters.getCustomerCategory().isBlank()) {
+            query.setParameter("customerCategory", filters.getCustomerCategory());
+        }
+
         return query.getResultList();
     }
 
-    public java.util.List<Object[]> getTopSalespersons(
+    public List<Object[]> getTopSalespersons(
             Integer companyKey,
             LocalDate startDate,
-            LocalDate endDate
+            LocalDate endDate,
+            SalesFilterRequest filters
     ) {
+
         StringBuilder sql = new StringBuilder("""
         SELECT 
             COALESCE(u.user_name, 'Unknown Salesperson') AS name,
             COALESCE(SUM(f.allocated_amount), 0) + COALESCE(SUM(f.invoice_total), 0) AS amount
         FROM fact_sales_financials f
         LEFT JOIN dim_user u ON u.user_key = f.agent_user_key
+        LEFT JOIN dim_customer c ON c.customer_key = f.customer_key
         LEFT JOIN dim_date d ON d.date_key = f.date_key
         WHERE f.company_key = :companyKey
     """);
@@ -563,6 +1136,24 @@ public class SalesKpiRepository {
 
         if (endDate != null) {
             sql.append(" AND d.full_date <= :endDate");
+        }
+
+        if (filters != null && filters.getCustomerName() != null && !filters.getCustomerName().isBlank()) {
+            sql.append("""
+            AND COALESCE(
+                NULLIF(TRIM(c.organization_name), ''),
+                NULLIF(TRIM(c.contact_name), ''),
+                'Unknown Customer'
+            ) = :customerName
+        """);
+        }
+
+        if (filters != null && filters.getSalespersonKey() != null) {
+            sql.append(" AND f.agent_user_key = :salespersonKey");
+        }
+
+        if (filters != null && filters.getCustomerCategory() != null && !filters.getCustomerCategory().isBlank()) {
+            sql.append(" AND c.client_category = :customerCategory");
         }
 
         sql.append("""
@@ -582,20 +1173,39 @@ public class SalesKpiRepository {
             query.setParameter("endDate", endDate);
         }
 
+        if (filters != null && filters.getCustomerName() != null && !filters.getCustomerName().isBlank()) {
+            query.setParameter("customerName", filters.getCustomerName());
+        }
+
+        if (filters != null && filters.getSalespersonKey() != null) {
+            query.setParameter("salespersonKey", filters.getSalespersonKey());
+        }
+
+        if (filters != null && filters.getCustomerCategory() != null && !filters.getCustomerCategory().isBlank()) {
+            query.setParameter("customerCategory", filters.getCustomerCategory());
+        }
+
         return query.getResultList();
     }
 
-    public java.util.List<Object[]> getRevenueByCustomer(
+    public List<Object[]> getRevenueByCustomer(
             Integer companyKey,
             LocalDate startDate,
-            LocalDate endDate
+            LocalDate endDate,
+            SalesFilterRequest filters
     ) {
+
         StringBuilder sql = new StringBuilder("""
         SELECT
-            COALESCE(c.organization_name, c.contact_name, 'Unknown Customer') AS customer_name,
+            COALESCE(
+                NULLIF(TRIM(c.organization_name), ''),
+                NULLIF(TRIM(c.contact_name), ''),
+                'Unknown Customer'
+            ) AS customer_name,
             COALESCE(SUM(f.allocated_amount), 0) + COALESCE(SUM(f.invoice_total), 0) AS amount
         FROM fact_sales_financials f
         LEFT JOIN dim_customer c ON c.customer_key = f.customer_key
+        LEFT JOIN dim_user u ON u.user_key = f.agent_user_key
         LEFT JOIN dim_date d ON d.date_key = f.date_key
         WHERE f.company_key = :companyKey
     """);
@@ -608,8 +1218,26 @@ public class SalesKpiRepository {
             sql.append(" AND d.full_date <= :endDate");
         }
 
+        if (filters != null && filters.getCustomerName() != null && !filters.getCustomerName().isBlank()) {
+            sql.append("""
+            AND COALESCE(
+                NULLIF(TRIM(c.organization_name), ''),
+                NULLIF(TRIM(c.contact_name), ''),
+                'Unknown Customer'
+            ) = :customerName
+        """);
+        }
+
+        if (filters != null && filters.getSalespersonKey() != null) {
+            sql.append(" AND f.agent_user_key = :salespersonKey");
+        }
+
+        if (filters != null && filters.getCustomerCategory() != null && !filters.getCustomerCategory().isBlank()) {
+            sql.append(" AND c.client_category = :customerCategory");
+        }
+
         sql.append("""
-        GROUP BY c.organization_name, c.contact_name
+        GROUP BY customer_name
         ORDER BY amount DESC
         LIMIT 10
     """);
@@ -625,14 +1253,28 @@ public class SalesKpiRepository {
             query.setParameter("endDate", endDate);
         }
 
+        if (filters != null && filters.getCustomerName() != null && !filters.getCustomerName().isBlank()) {
+            query.setParameter("customerName", filters.getCustomerName());
+        }
+
+        if (filters != null && filters.getSalespersonKey() != null) {
+            query.setParameter("salespersonKey", filters.getSalespersonKey());
+        }
+
+        if (filters != null && filters.getCustomerCategory() != null && !filters.getCustomerCategory().isBlank()) {
+            query.setParameter("customerCategory", filters.getCustomerCategory());
+        }
+
         return query.getResultList();
     }
 
     public List<Object[]> getRevenueByProduct(
             Integer companyKey,
             LocalDate startDate,
-            LocalDate endDate
+            LocalDate endDate,
+            SalesFilterRequest filters
     ) {
+
         StringBuilder sql = new StringBuilder("""
         SELECT 
             COALESCE(p.product_name, 'Unknown Product') AS product_name,
@@ -651,6 +1293,14 @@ public class SalesKpiRepository {
             sql.append(" AND d.full_date <= :endDate");
         }
 
+        if (filters != null && filters.getProductKey() != null) {
+            sql.append(" AND sl.product_key = :productKey");
+        }
+
+        if (filters != null && filters.getProductCategory() != null && !filters.getProductCategory().isBlank()) {
+            sql.append(" AND p.category = :productCategory");
+        }
+
         sql.append("""
         GROUP BY p.product_name
         ORDER BY amount DESC
@@ -660,8 +1310,21 @@ public class SalesKpiRepository {
         var query = entityManager.createNativeQuery(sql.toString())
                 .setParameter("companyKey", companyKey);
 
-        if (startDate != null) query.setParameter("startDate", startDate);
-        if (endDate != null) query.setParameter("endDate", endDate);
+        if (startDate != null) {
+            query.setParameter("startDate", startDate);
+        }
+
+        if (endDate != null) {
+            query.setParameter("endDate", endDate);
+        }
+
+        if (filters != null && filters.getProductKey() != null) {
+            query.setParameter("productKey", filters.getProductKey());
+        }
+
+        if (filters != null && filters.getProductCategory() != null && !filters.getProductCategory().isBlank()) {
+            query.setParameter("productCategory", filters.getProductCategory());
+        }
 
         return query.getResultList();
     }
@@ -669,18 +1332,24 @@ public class SalesKpiRepository {
     public List<Object[]> getCustomerRetention(
             Integer companyKey,
             LocalDate startDate,
-            LocalDate endDate
+            LocalDate endDate,
+            SalesFilterRequest filters
     ) {
+
         StringBuilder sql = new StringBuilder("""
         WITH monthly_active AS (
             SELECT 
                 d.year,
                 d.month,
                 DATE_TRUNC('month', d.full_date)::date AS month_date,
-                f.customer_key
+                COALESCE(
+                    NULLIF(TRIM(c.organization_name), ''),
+                    NULLIF(TRIM(c.contact_name), ''),
+                    'Unknown Customer'
+                ) AS customer_name
             FROM fact_sales_financials f
-            JOIN dim_date d 
-                ON d.date_key = f.date_key
+            JOIN dim_date d ON d.date_key = f.date_key
+            LEFT JOIN dim_customer c ON c.customer_key = f.customer_key
             WHERE f.company_key = :companyKey
               AND f.customer_key IS NOT NULL
     """);
@@ -692,19 +1361,36 @@ public class SalesKpiRepository {
         }
 
         if (endDate != null) {
+            sql.append(" AND d.full_date <= :endDate");
+        }
+
+        if (filters != null && filters.getCustomerName() != null && !filters.getCustomerName().isBlank()) {
             sql.append("""
-              AND d.full_date <= :endDate
+              AND COALESCE(
+                  NULLIF(TRIM(c.organization_name), ''),
+                  NULLIF(TRIM(c.contact_name), ''),
+                  'Unknown Customer'
+              ) = :customerName
         """);
         }
 
+        if (filters != null && filters.getCustomerCategory() != null && !filters.getCustomerCategory().isBlank()) {
+            sql.append(" AND c.client_category = :customerCategory");
+        }
+
         sql.append("""
-            GROUP BY d.year, d.month, DATE_TRUNC('month', d.full_date), f.customer_key
+            GROUP BY d.year, d.month, DATE_TRUNC('month', d.full_date),
+                     COALESCE(
+                         NULLIF(TRIM(c.organization_name), ''),
+                         NULLIF(TRIM(c.contact_name), ''),
+                         'Unknown Customer'
+                     )
         ),
 
         monthly_counts AS (
             SELECT
                 month_date,
-                COUNT(DISTINCT customer_key) AS total_customers
+                COUNT(DISTINCT customer_name) AS total_customers
             FROM monthly_active
             GROUP BY month_date
         ),
@@ -712,10 +1398,10 @@ public class SalesKpiRepository {
         retained_customers AS (
             SELECT
                 curr.month_date,
-                COUNT(DISTINCT curr.customer_key) AS retained_customers
+                COUNT(DISTINCT curr.customer_name) AS retained_customers
             FROM monthly_active curr
             JOIN monthly_active prev
-                ON curr.customer_key = prev.customer_key
+                ON curr.customer_name = prev.customer_name
                AND curr.month_date = prev.month_date + INTERVAL '1 month'
             GROUP BY curr.month_date
         )
@@ -751,8 +1437,87 @@ public class SalesKpiRepository {
         """);
         }
 
+        sql.append(" ORDER BY curr.month_date");
+
+        var query = entityManager.createNativeQuery(sql.toString())
+                .setParameter("companyKey", companyKey);
+
+        if (startDate != null) {
+            query.setParameter("startDate", startDate);
+        }
+
+        if (endDate != null) {
+            query.setParameter("endDate", endDate);
+        }
+
+        if (filters != null && filters.getCustomerName() != null && !filters.getCustomerName().isBlank()) {
+            query.setParameter("customerName", filters.getCustomerName());
+        }
+
+        if (filters != null && filters.getCustomerCategory() != null && !filters.getCustomerCategory().isBlank()) {
+            query.setParameter("customerCategory", filters.getCustomerCategory());
+        }
+
+        return query.getResultList();
+    }
+
+    public List<Object[]> getHighValueDeals(
+            Integer companyKey,
+            LocalDate startDate,
+            LocalDate endDate,
+            SalesFilterRequest filters
+    ) {
+
+        StringBuilder sql = new StringBuilder("""
+        SELECT
+            f.deal_id,
+            f.deal_value
+        FROM fact_deal f
+        LEFT JOIN dim_date d ON d.date_key = f.close_date_key
+        LEFT JOIN dim_customer c ON c.customer_key = f.customer_key
+        LEFT JOIN dim_user u ON u.user_key = f.owner_user_key
+        LEFT JOIN dim_workstatus ws ON ws.workstatus_key = f.workstatus_key
+        WHERE f.company_key = :companyKey
+          AND f.deal_value IS NOT NULL
+    """);
+
+        if (startDate != null) {
+            sql.append(" AND d.full_date >= :startDate");
+        }
+
+        if (endDate != null) {
+            sql.append(" AND d.full_date <= :endDate");
+        }
+
+        if (filters != null && filters.getCustomerId() != null) {
+            sql.append(" AND c.customer_id = :customerId");
+        }
+
+        if (filters != null && filters.getCustomerName() != null && !filters.getCustomerName().isBlank()) {
+            sql.append("""
+            AND COALESCE(
+                NULLIF(TRIM(c.organization_name), ''),
+                NULLIF(TRIM(c.contact_name), ''),
+                'Unknown Customer'
+            ) = :customerName
+        """);
+        }
+
+        if (filters != null && filters.getSalespersonKey() != null) {
+            sql.append(" AND f.owner_user_key = :salespersonKey");
+        }
+
+        if (filters != null && filters.getWorkstatusLabel() != null && !filters.getWorkstatusLabel().isBlank()) {
+            sql.append(" AND ws.status_label = :workstatusLabel");
+        }
+
+        if (filters != null && filters.getCustomerCategory() != null && !filters.getCustomerCategory().isBlank()) {
+            sql.append(" AND c.client_category = :customerCategory");
+        }
+
         sql.append("""
-        ORDER BY curr.month_date
+        ORDER BY f.deal_value DESC
+        LIMIT 5
     """);
 
         var query = entityManager.createNativeQuery(sql.toString())
@@ -766,19 +1531,139 @@ public class SalesKpiRepository {
             query.setParameter("endDate", endDate);
         }
 
+        if (filters != null && filters.getCustomerId() != null) {
+            query.setParameter("customerId", filters.getCustomerId());
+        }
+
+        if (filters != null && filters.getCustomerName() != null && !filters.getCustomerName().isBlank()) {
+            query.setParameter("customerName", filters.getCustomerName());
+        }
+
+        if (filters != null && filters.getSalespersonKey() != null) {
+            query.setParameter("salespersonKey", filters.getSalespersonKey());
+        }
+
+        if (filters != null && filters.getWorkstatusLabel() != null && !filters.getWorkstatusLabel().isBlank()) {
+            query.setParameter("workstatusLabel", filters.getWorkstatusLabel());
+        }
+
+        if (filters != null && filters.getCustomerCategory() != null && !filters.getCustomerCategory().isBlank()) {
+            query.setParameter("customerCategory", filters.getCustomerCategory());
+        }
+
         return query.getResultList();
     }
 
-    public List<Object[]> getHighValueDeals(Integer companyKey) {
+    public List<Object[]> getCustomerOptions(Integer companyKey) {
         String sql = """
         SELECT
-          deal_id,
-          deal_value
-      FROM fact_deal
-      WHERE company_key = :companyKey
-      AND deal_value IS NOT NULL
-      ORDER BY deal_value DESC
-      LIMIT 5
+            customer_name AS value,
+            customer_name AS label
+        FROM (
+            SELECT DISTINCT
+                COALESCE(
+                    NULLIF(TRIM(c.organization_name), ''),
+                    NULLIF(TRIM(c.contact_name), ''),
+                    'Unknown Customer'
+                ) AS customer_name
+            FROM dim_customer c
+            WHERE c.company_key = :companyKey
+        ) x
+        WHERE customer_name IS NOT NULL
+        ORDER BY customer_name
+    """;
+
+        return entityManager.createNativeQuery(sql)
+                .setParameter("companyKey", companyKey)
+                .getResultList();
+    }
+
+    public List<Object[]> getProductOptions(Integer companyKey) {
+        String sql = """
+        SELECT DISTINCT
+            p.product_key,
+            COALESCE(p.product_name, 'Unknown Product') AS product_name
+        FROM dim_product p
+        JOIN fact_sales_line sl ON sl.product_key = p.product_key
+        WHERE sl.company_key = :companyKey
+        ORDER BY product_name
+    """;
+
+        return entityManager.createNativeQuery(sql)
+                .setParameter("companyKey", companyKey)
+                .getResultList();
+    }
+
+    public List<Object[]> getSalespersonOptions(Integer companyKey) {
+        String sql = """
+        SELECT DISTINCT
+            u.user_key,
+            COALESCE(u.user_name, 'Unknown Salesperson') AS user_name
+        FROM dim_user u
+        WHERE u.company_key = :companyKey
+          AND u.user_key IN (
+              SELECT DISTINCT agent_user_key
+              FROM fact_sales_financials
+              WHERE company_key = :companyKey
+                AND agent_user_key IS NOT NULL
+
+              UNION
+
+              SELECT DISTINCT owner_user_key
+              FROM fact_deal
+              WHERE company_key = :companyKey
+                AND owner_user_key IS NOT NULL
+          )
+        ORDER BY user_name
+    """;
+
+        return entityManager.createNativeQuery(sql)
+                .setParameter("companyKey", companyKey)
+                .getResultList();
+    }
+
+    public List<String> getWorkstatusOptions(Integer companyKey) {
+        String sql = """
+        SELECT DISTINCT
+            ws.status_label
+        FROM dim_workstatus ws
+        JOIN fact_deal f ON f.workstatus_key = ws.workstatus_key
+        WHERE f.company_key = :companyKey
+          AND ws.status_label IS NOT NULL
+        ORDER BY ws.status_label
+    """;
+
+        return entityManager.createNativeQuery(sql)
+                .setParameter("companyKey", companyKey)
+                .getResultList();
+    }
+
+    public List<String> getCustomerCategoryOptions(Integer companyKey) {
+        String sql = """
+        SELECT DISTINCT
+            c.client_category
+        FROM dim_customer c
+        WHERE c.company_key = :companyKey
+          AND c.client_category IS NOT NULL
+          AND TRIM(c.client_category) <> ''
+        ORDER BY c.client_category
+    """;
+
+        return entityManager.createNativeQuery(sql)
+                .setParameter("companyKey", companyKey)
+                .getResultList();
+    }
+
+    public List<String> getProductCategoryOptions(Integer companyKey) {
+        String sql = """
+        SELECT DISTINCT
+            p.category
+        FROM dim_product p
+        JOIN fact_sales_line sl ON sl.product_key = p.product_key
+        WHERE sl.company_key = :companyKey
+          AND p.category IS NOT NULL
+          AND TRIM(p.category) <> ''
+        ORDER BY p.category
     """;
 
         return entityManager.createNativeQuery(sql)

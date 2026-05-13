@@ -1,14 +1,12 @@
 package com.rest_erp.backend_bi_rest_erp.service.sales;
 
-import com.rest_erp.backend_bi_rest_erp.dto.sales.PipelineItem;
-import com.rest_erp.backend_bi_rest_erp.dto.sales.RetentionItem;
-import com.rest_erp.backend_bi_rest_erp.dto.sales.RevenueByProductItem;
-import com.rest_erp.backend_bi_rest_erp.dto.sales.SalesKpiResponse;
+import com.rest_erp.backend_bi_rest_erp.dto.sales.*;
 import com.rest_erp.backend_bi_rest_erp.repository.CommonRepository;
 import com.rest_erp.backend_bi_rest_erp.repository.sales.SalesKpiRepository;
 import com.rest_erp.backend_bi_rest_erp.tenant.TenantContext;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -24,24 +22,35 @@ public class SalesKpiService {
     private final SalesKpiRepository salesKpiRepository;
     private final CommonRepository commonRepository;
 
-    public SalesKpiResponse getSalesKpis(LocalDate startDate, LocalDate endDate) {
+    public SalesKpiResponse getSalesKpis(LocalDate startDate, LocalDate endDate, SalesFilterRequest filters) {
 
         Integer companyKey = TenantContext.getCompanyKey();
 
 
         String currency = commonRepository.getCompanyCurrency(companyKey);
 
-        BigDecimal totalRevenue = salesKpiRepository.getTotalRevenue(companyKey, startDate, endDate);
-        Long numberOfDeals = salesKpiRepository.getNumberOfDeals(companyKey, startDate, endDate);
-        BigDecimal winRate = salesKpiRepository.getWinRate(companyKey, startDate, endDate);
-        BigDecimal averageDealValue = salesKpiRepository.getAverageDealValue(companyKey, startDate, endDate);
-        Long salesOrdersCount = salesKpiRepository.getSalesOrdersCount(companyKey, startDate, endDate);
-        BigDecimal outstandingReceivables = salesKpiRepository.getOutstandingReceivables(companyKey, startDate, endDate);
-        Long pipelineDealsCount = salesKpiRepository.getPipelineDealsCount(companyKey);
-        BigDecimal pipelineValue = salesKpiRepository.getPipelineValue(companyKey);
+        BigDecimal totalRevenue = salesKpiRepository.getTotalRevenue(companyKey, startDate, endDate, filters);
+        Long numberOfDeals = salesKpiRepository.getNumberOfDeals(companyKey, startDate, endDate, filters);
+        BigDecimal winRate = salesKpiRepository.getWinRate(companyKey, startDate, endDate, filters);
+        BigDecimal averageDealValue = salesKpiRepository.getAverageDealValue(companyKey, startDate, endDate, filters);
+        Long salesOrdersCount = salesKpiRepository.getSalesOrdersCount(companyKey, startDate, endDate, filters);
+        BigDecimal outstandingReceivables = salesKpiRepository.getOutstandingReceivables(companyKey, startDate, endDate, filters);
+        Long pipelineDealsCount = salesKpiRepository.getPipelineDealsCount(
+                companyKey,
+                startDate,
+                endDate,
+                filters
+        );
 
-        Long activeCustomers = salesKpiRepository.getActiveCustomers(companyKey, startDate, endDate);
-        Long totalCustomers = salesKpiRepository.getTotalCustomers(companyKey);
+        BigDecimal pipelineValue = salesKpiRepository.getPipelineValue(
+                companyKey,
+                startDate,
+                endDate,
+                filters
+        );
+
+        Long activeCustomers = salesKpiRepository.getActiveCustomers(companyKey, startDate, endDate, filters);
+        Long totalCustomers = salesKpiRepository.getTotalCustomers(companyKey, filters);
 
         Long inactiveCustomers = Math.max(
                 0L,
@@ -57,7 +66,7 @@ public class SalesKpiService {
             );
         }
 
-        BigDecimal conversionRate = salesKpiRepository.getConversionRate(companyKey, startDate, endDate);
+        BigDecimal conversionRate = salesKpiRepository.getConversionRate(companyKey, startDate, endDate, filters);
 
         return SalesKpiResponse.builder()
                 .totalRevenue(totalRevenue != null ? totalRevenue : BigDecimal.ZERO)
@@ -76,20 +85,28 @@ public class SalesKpiService {
                 .build();
     }
 
-    public java.util.List<com.rest_erp.backend_bi_rest_erp.dto.sales.SalesRevenueTrendItem> getRevenueTrend(LocalDate startDate, LocalDate endDate) {
-
+    public List<SalesRevenueTrendItem> getRevenueTrend(
+            LocalDate startDate,
+            LocalDate endDate,
+            SalesFilterRequest filters
+    ) {
         Integer companyKey = TenantContext.getCompanyKey();
 
-        java.util.List<Object[]> rows = salesKpiRepository.getRevenueTrend(companyKey, startDate, endDate);
+        List<Object[]> rows = salesKpiRepository.getRevenueTrend(
+                companyKey,
+                startDate,
+                endDate,
+                filters
+        );
 
-        java.util.List<com.rest_erp.backend_bi_rest_erp.dto.sales.SalesRevenueTrendItem> result = new java.util.ArrayList<>();
+        List<SalesRevenueTrendItem> result = new ArrayList<>();
 
         for (Object[] row : rows) {
             String label = row[0] != null ? row[0].toString() : "";
             BigDecimal value = row[1] != null ? new BigDecimal(row[1].toString()) : BigDecimal.ZERO;
 
             result.add(
-                    com.rest_erp.backend_bi_rest_erp.dto.sales.SalesRevenueTrendItem.builder()
+                    SalesRevenueTrendItem.builder()
                             .label(label)
                             .value(value)
                             .build()
@@ -101,14 +118,16 @@ public class SalesKpiService {
 
     public List<Map<String, Object>> getPipelineDistribution(
             LocalDate startDate,
-            LocalDate endDate
+            LocalDate endDate,
+            SalesFilterRequest filters
     ) {
         Integer companyKey = TenantContext.getCompanyKey();
 
         List<Object[]> rows = salesKpiRepository.getPipelineDistribution(
                 companyKey,
                 startDate,
-                endDate
+                endDate,
+                filters
         );
 
         return rows.stream()
@@ -123,24 +142,30 @@ public class SalesKpiService {
                 .toList();
     }
 
-    public java.util.List<com.rest_erp.backend_bi_rest_erp.dto.sales.RecentSalesOrderItem> getRecentSalesOrders(
+    public List<RecentSalesOrderItem> getRecentSalesOrders(
             LocalDate startDate,
-            LocalDate endDate
+            LocalDate endDate,
+            SalesFilterRequest filters
     ) {
         Integer companyKey = TenantContext.getCompanyKey();
         String currency = commonRepository.getCompanyCurrency(companyKey);
 
-        java.util.List<Object[]> rows = salesKpiRepository.getRecentSalesOrders(companyKey, startDate, endDate);
+        List<Object[]> rows = salesKpiRepository.getRecentSalesOrders(
+                companyKey,
+                startDate,
+                endDate,
+                filters
+        );
 
-        java.util.List<com.rest_erp.backend_bi_rest_erp.dto.sales.RecentSalesOrderItem> result = new java.util.ArrayList<>();
+        List<RecentSalesOrderItem> result = new ArrayList<>();
 
         for (Object[] row : rows) {
             result.add(
-                    com.rest_erp.backend_bi_rest_erp.dto.sales.RecentSalesOrderItem.builder()
+                    RecentSalesOrderItem.builder()
                             .id(row[0] != null ? row[0].toString() : "")
                             .customer(row[1] != null ? row[1].toString() : "Unknown Customer")
-                            .date(row[2] != null ? java.time.LocalDate.parse(row[2].toString()) : null)
-                            .amount(row[3] != null ? new java.math.BigDecimal(row[3].toString()) : java.math.BigDecimal.ZERO)
+                            .date(row[2] != null ? LocalDate.parse(row[2].toString()) : null)
+                            .amount(row[3] != null ? new BigDecimal(row[3].toString()) : BigDecimal.ZERO)
                             .status(row[4] != null ? row[4].toString() : "")
                             .currency(currency)
                             .build()
@@ -150,23 +175,28 @@ public class SalesKpiService {
         return result;
     }
 
-    public java.util.List<com.rest_erp.backend_bi_rest_erp.dto.sales.TopSalespersonItem> getTopSalespersons(
+    public List<TopSalespersonItem> getTopSalespersons(
             LocalDate startDate,
-            LocalDate endDate
+            LocalDate endDate,
+            SalesFilterRequest filters
     ) {
         Integer companyKey = TenantContext.getCompanyKey();
         String currency = commonRepository.getCompanyCurrency(companyKey);
 
-        java.util.List<Object[]> rows = salesKpiRepository.getTopSalespersons(companyKey, startDate, endDate);
+        List<Object[]> rows = salesKpiRepository.getTopSalespersons(
+                companyKey,
+                startDate,
+                endDate,
+                filters
+        );
 
-        java.util.List<com.rest_erp.backend_bi_rest_erp.dto.sales.TopSalespersonItem> result =
-                new java.util.ArrayList<>();
+        List<TopSalespersonItem> result = new ArrayList<>();
 
         for (Object[] row : rows) {
             result.add(
-                    com.rest_erp.backend_bi_rest_erp.dto.sales.TopSalespersonItem.builder()
+                    TopSalespersonItem.builder()
                             .name(row[0] != null ? row[0].toString() : "Unknown Salesperson")
-                            .amount(row[1] != null ? new java.math.BigDecimal(row[1].toString()) : java.math.BigDecimal.ZERO)
+                            .amount(row[1] != null ? new BigDecimal(row[1].toString()) : BigDecimal.ZERO)
                             .currency(currency)
                             .build()
             );
@@ -175,22 +205,27 @@ public class SalesKpiService {
         return result;
     }
 
-    public java.util.List<com.rest_erp.backend_bi_rest_erp.dto.sales.RevenueByCustomerItem> getRevenueByCustomer(
+    public List<RevenueByCustomerItem> getRevenueByCustomer(
             LocalDate startDate,
-            LocalDate endDate
+            LocalDate endDate,
+            SalesFilterRequest filters
     ) {
         Integer companyKey = TenantContext.getCompanyKey();
 
-        java.util.List<Object[]> rows = salesKpiRepository.getRevenueByCustomer(companyKey, startDate, endDate);
+        List<Object[]> rows = salesKpiRepository.getRevenueByCustomer(
+                companyKey,
+                startDate,
+                endDate,
+                filters
+        );
 
-        java.util.List<com.rest_erp.backend_bi_rest_erp.dto.sales.RevenueByCustomerItem> result =
-                new java.util.ArrayList<>();
+        List<RevenueByCustomerItem> result = new ArrayList<>();
 
         for (Object[] row : rows) {
             result.add(
-                    com.rest_erp.backend_bi_rest_erp.dto.sales.RevenueByCustomerItem.builder()
+                    RevenueByCustomerItem.builder()
                             .name(row[0] != null ? row[0].toString() : "Unknown Customer")
-                            .amount(row[1] != null ? new java.math.BigDecimal(row[1].toString()) : java.math.BigDecimal.ZERO)
+                            .amount(row[1] != null ? new BigDecimal(row[1].toString()) : BigDecimal.ZERO)
                             .build()
             );
         }
@@ -200,18 +235,24 @@ public class SalesKpiService {
 
     public List<RevenueByProductItem> getRevenueByProduct(
             LocalDate startDate,
-            LocalDate endDate
+            LocalDate endDate,
+            SalesFilterRequest filters
     ) {
         Integer companyKey = TenantContext.getCompanyKey();
 
-        List<Object[]> rows = salesKpiRepository.getRevenueByProduct(companyKey, startDate, endDate);
+        List<Object[]> rows = salesKpiRepository.getRevenueByProduct(
+                companyKey,
+                startDate,
+                endDate,
+                filters
+        );
 
         List<RevenueByProductItem> result = new ArrayList<>();
 
         for (Object[] row : rows) {
             result.add(
                     RevenueByProductItem.builder()
-                            .name(row[0] != null ? row[0].toString() : "Unknown")
+                            .name(row[0] != null ? row[0].toString() : "Unknown Product")
                             .amount(row[1] != null ? new BigDecimal(row[1].toString()) : BigDecimal.ZERO)
                             .build()
             );
@@ -222,14 +263,16 @@ public class SalesKpiService {
 
     public List<Map<String, Object>> getCustomerRetention(
             LocalDate startDate,
-            LocalDate endDate
+            LocalDate endDate,
+            SalesFilterRequest filters
     ) {
         Integer companyKey = TenantContext.getCompanyKey();
 
         List<Object[]> rows = salesKpiRepository.getCustomerRetention(
                 companyKey,
                 startDate,
-                endDate
+                endDate,
+                filters
         );
 
         return rows.stream()
@@ -244,10 +287,19 @@ public class SalesKpiService {
                 .toList();
     }
 
-    public List<Map<String, Object>> getHighValueDeals() {
+    public List<Map<String, Object>> getHighValueDeals(
+            LocalDate startDate,
+            LocalDate endDate,
+            SalesFilterRequest filters
+    ) {
         Integer companyKey = TenantContext.getCompanyKey();
 
-        List<Object[]> rows = salesKpiRepository.getHighValueDeals(companyKey);
+        List<Object[]> rows = salesKpiRepository.getHighValueDeals(
+                companyKey,
+                startDate,
+                endDate,
+                filters
+        );
 
         List<Map<String, Object>> result = new ArrayList<>();
 
@@ -256,6 +308,120 @@ public class SalesKpiService {
             item.put("name", "Deal #" + row[0]);
             item.put("value", row[1]);
             result.add(item);
+        }
+
+        return result;
+    }
+
+    public List<SalesFilterOption> getCustomerOptions() {
+        Integer companyKey = TenantContext.getCompanyKey();
+
+        List<Object[]> rows = salesKpiRepository.getCustomerOptions(companyKey);
+
+        List<SalesFilterOption> result = new ArrayList<>();
+
+        for (Object[] row : rows) {
+            result.add(
+                    SalesFilterOption.builder()
+                            .value(row[0])
+                            .label(row[1] != null ? row[1].toString() : "Unknown Customer")
+                            .build()
+            );
+        }
+
+        return result;
+    }
+
+    public List<SalesFilterOption> getProductOptions() {
+        Integer companyKey = TenantContext.getCompanyKey();
+
+        List<Object[]> rows = salesKpiRepository.getProductOptions(companyKey);
+
+        List<SalesFilterOption> result = new ArrayList<>();
+
+        for (Object[] row : rows) {
+            result.add(
+                    SalesFilterOption.builder()
+                            .value(row[0])
+                            .label(row[1] != null ? row[1].toString() : "Unknown Product")
+                            .build()
+            );
+        }
+
+        return result;
+    }
+
+    public List<SalesFilterOption> getSalespersonOptions() {
+        Integer companyKey = TenantContext.getCompanyKey();
+
+        List<Object[]> rows = salesKpiRepository.getSalespersonOptions(companyKey);
+
+        List<SalesFilterOption> result = new ArrayList<>();
+
+        for (Object[] row : rows) {
+            result.add(
+                    SalesFilterOption.builder()
+                            .value(row[0])
+                            .label(row[1] != null ? row[1].toString() : "Unknown Salesperson")
+                            .build()
+            );
+        }
+
+        return result;
+    }
+
+    public List<SalesFilterOption> getWorkstatusOptions() {
+        Integer companyKey = TenantContext.getCompanyKey();
+
+        List<String> rows = salesKpiRepository.getWorkstatusOptions(companyKey);
+
+        List<SalesFilterOption> result = new ArrayList<>();
+
+        for (String statusLabel : rows) {
+            result.add(
+                    SalesFilterOption.builder()
+                            .value(statusLabel)
+                            .label(statusLabel)
+                            .build()
+            );
+        }
+
+        return result;
+    }
+
+    public List<SalesFilterOption> getCustomerCategoryOptions() {
+        Integer companyKey = TenantContext.getCompanyKey();
+
+        List<String> rows = salesKpiRepository.getCustomerCategoryOptions(companyKey);
+
+        List<SalesFilterOption> result = new ArrayList<>();
+
+        for (String category : rows) {
+            result.add(
+                    SalesFilterOption.builder()
+                            .value(category)
+                            .label(category)
+                            .build()
+            );
+        }
+
+        return result;
+    }
+
+    public List<SalesFilterOption> getProductCategoryOptions() {
+        Integer companyKey = TenantContext.getCompanyKey();
+
+        List<String> rows = salesKpiRepository.getProductCategoryOptions(companyKey);
+
+        List<SalesFilterOption> result = new ArrayList<>();
+
+        for (String category : rows) {
+            result.add(
+                    SalesFilterOption.builder()
+                            .value(category)
+                            .label(category)
+                            .build()
+            );
         }
 
         return result;
