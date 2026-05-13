@@ -421,24 +421,71 @@ public class SalesKpiRepository {
         return query.getResultList();
     }
 
-    public java.util.List<Object[]> getPipelineDistribution(Integer companyKey) {
-
-        String sql = """
+    public java.util.List<Object[]> getPipelineDistribution(
+            Integer companyKey,
+            LocalDate startDate,
+            LocalDate endDate
+    ) {
+        StringBuilder sql = new StringBuilder("""
         SELECT 
             w.status_label,
-            COUNT(DISTINCT f.deal_id)
+            COUNT(DISTINCT f.deal_id) AS total_deals
         FROM fact_deal f
-        JOIN dim_workstatus w ON w.workstatus_key = f.workstatus_key
+        JOIN dim_workstatus w 
+            ON w.workstatus_key = f.workstatus_key
+        JOIN dim_date d
+            ON d.date_key = f.close_date_key
         WHERE f.company_key = :companyKey
           AND COALESCE(f.is_archived, false) = false
-          AND w.status_label IN ('Generated', 'Initial Contact')
-        GROUP BY w.status_label
-        ORDER BY COUNT(DISTINCT f.deal_id) DESC
-    """;
+          AND w.status_label IN (
+              'Generated',
+              'Initial Contact',
+              'Backlog',
+              'To Do',
+              'In Progress',
+              'In Review',
+              'Done',
+              'Win',
+              'Lost'
+          )
+    """);
 
-        return entityManager.createNativeQuery(sql)
-                .setParameter("companyKey", companyKey)
-                .getResultList();
+        if (startDate != null) {
+            sql.append(" AND d.full_date >= :startDate");
+        }
+
+        if (endDate != null) {
+            sql.append(" AND d.full_date <= :endDate");
+        }
+
+        sql.append("""
+        GROUP BY w.status_label
+        ORDER BY CASE w.status_label
+            WHEN 'Generated' THEN 1
+            WHEN 'Initial Contact' THEN 2
+            WHEN 'Backlog' THEN 3
+            WHEN 'To Do' THEN 4
+            WHEN 'In Progress' THEN 5
+            WHEN 'In Review' THEN 6
+            WHEN 'Done' THEN 7
+            WHEN 'Win' THEN 8
+            WHEN 'Lost' THEN 9
+            ELSE 10
+        END
+    """);
+
+        var query = entityManager.createNativeQuery(sql.toString())
+                .setParameter("companyKey", companyKey);
+
+        if (startDate != null) {
+            query.setParameter("startDate", startDate);
+        }
+
+        if (endDate != null) {
+            query.setParameter("endDate", endDate);
+        }
+
+        return query.getResultList();
     }
 
     public java.util.List<Object[]> getRecentSalesOrders(
@@ -619,52 +666,107 @@ public class SalesKpiRepository {
         return query.getResultList();
     }
 
-    public List<Object[]> getCustomerRetention(Integer companyKey) {
-
-        String sql = """
+    public List<Object[]> getCustomerRetention(
+            Integer companyKey,
+            LocalDate startDate,
+            LocalDate endDate
+    ) {
+        StringBuilder sql = new StringBuilder("""
         WITH monthly_active AS (
             SELECT 
                 d.year,
                 d.month,
+                DATE_TRUNC('month', d.full_date)::date AS month_date,
                 f.customer_key
             FROM fact_sales_financials f
-            JOIN dim_date d ON d.date_key = f.date_key
+            JOIN dim_date d 
+                ON d.date_key = f.date_key
             WHERE f.company_key = :companyKey
-            GROUP BY d.year, d.month, f.customer_key
+              AND f.customer_key IS NOT NULL
+    """);
+
+        if (startDate != null) {
+            sql.append("""
+              AND d.full_date >= (date_trunc('month', CAST(:startDate AS date)) - INTERVAL '1 month')::date
+        """);
+        }
+
+        if (endDate != null) {
+            sql.append("""
+              AND d.full_date <= :endDate
+        """);
+        }
+
+        sql.append("""
+            GROUP BY d.year, d.month, DATE_TRUNC('month', d.full_date), f.customer_key
         ),
 
-        retention_calc AS (
-            SELECT 
-                curr.year,
-                curr.month,
-                COUNT(DISTINCT curr.customer_key) FILTER (
-                    WHERE prev.customer_key IS NOT NULL
-                ) AS retained,
+        monthly_counts AS (
+            SELECT
+                month_date,
+                COUNT(DISTINCT customer_key) AS total_customers
+            FROM monthly_active
+            GROUP BY month_date
+        ),
 
-                COUNT(DISTINCT prev.customer_key) AS previous_total
+        retained_customers AS (
+            SELECT
+                curr.month_date,
+                COUNT(DISTINCT curr.customer_key) AS retained_customers
             FROM monthly_active curr
-            LEFT JOIN monthly_active prev
-              ON curr.customer_key = prev.customer_key
-             AND (
-                 (curr.year = prev.year AND curr.month = prev.month + 1)
-                 OR (curr.year = prev.year + 1 AND curr.month = 1 AND prev.month = 12)
-             )
-            GROUP BY curr.year, curr.month
+            JOIN monthly_active prev
+                ON curr.customer_key = prev.customer_key
+               AND curr.month_date = prev.month_date + INTERVAL '1 month'
+            GROUP BY curr.month_date
         )
 
-        SELECT 
-            CONCAT(year, '-', LPAD(month::text, 2, '0')),
-            CASE 
-                WHEN previous_total = 0 THEN 0
-                ELSE (retained * 100.0 / previous_total)
+        SELECT
+            TO_CHAR(curr.month_date, 'YYYY-MM') AS label,
+            CASE
+                WHEN COALESCE(prev.total_customers, 0) = 0 THEN 0
+                ELSE ROUND(
+                    COALESCE(ret.retained_customers, 0)::numeric 
+                    * 100.0 
+                    / prev.total_customers,
+                    2
+                )
             END AS retention_rate
-        FROM retention_calc
-        ORDER BY year, month
-    """;
+        FROM monthly_counts curr
+        LEFT JOIN monthly_counts prev
+            ON curr.month_date = prev.month_date + INTERVAL '1 month'
+        LEFT JOIN retained_customers ret
+            ON curr.month_date = ret.month_date
+        WHERE 1 = 1
+    """);
 
-        return entityManager.createNativeQuery(sql)
-                .setParameter("companyKey", companyKey)
-                .getResultList();
+        if (startDate != null) {
+            sql.append("""
+            AND curr.month_date >= date_trunc('month', CAST(:startDate AS date))::date
+        """);
+        }
+
+        if (endDate != null) {
+            sql.append("""
+            AND curr.month_date <= date_trunc('month', CAST(:endDate AS date))::date
+        """);
+        }
+
+        sql.append("""
+        ORDER BY curr.month_date
+    """);
+
+        var query = entityManager.createNativeQuery(sql.toString())
+                .setParameter("companyKey", companyKey);
+
+        if (startDate != null) {
+            query.setParameter("startDate", startDate);
+        }
+
+        if (endDate != null) {
+            query.setParameter("endDate", endDate);
+        }
+
+        return query.getResultList();
     }
 
     public List<Object[]> getHighValueDeals(Integer companyKey) {

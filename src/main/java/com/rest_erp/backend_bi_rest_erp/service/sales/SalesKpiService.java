@@ -99,24 +99,28 @@ public class SalesKpiService {
         return result;
     }
 
-    public List<PipelineItem> getPipelineDistribution() {
-
+    public List<Map<String, Object>> getPipelineDistribution(
+            LocalDate startDate,
+            LocalDate endDate
+    ) {
         Integer companyKey = TenantContext.getCompanyKey();
 
-        List<Object[]> rows = salesKpiRepository.getPipelineDistribution(companyKey);
+        List<Object[]> rows = salesKpiRepository.getPipelineDistribution(
+                companyKey,
+                startDate,
+                endDate
+        );
 
-        List<PipelineItem> result = new ArrayList<>();
+        return rows.stream()
+                .map(row -> {
+                    Map<String, Object> map = new HashMap<>();
 
-        for (Object[] row : rows) {
-            result.add(
-                    PipelineItem.builder()
-                            .label(row[0] != null ? row[0].toString() : "")
-                            .value(row[1] != null ? ((Number) row[1]).longValue() : 0L)
-                            .build()
-            );
-        }
+                    map.put("status", row[0]);
+                    map.put("count", row[1] != null ? ((Number) row[1]).longValue() : 0);
 
-        return result;
+                    return map;
+                })
+                .toList();
     }
 
     public java.util.List<com.rest_erp.backend_bi_rest_erp.dto.sales.RecentSalesOrderItem> getRecentSalesOrders(
@@ -216,24 +220,28 @@ public class SalesKpiService {
         return result;
     }
 
-    public List<RetentionItem> getCustomerRetention() {
-
+    public List<Map<String, Object>> getCustomerRetention(
+            LocalDate startDate,
+            LocalDate endDate
+    ) {
         Integer companyKey = TenantContext.getCompanyKey();
 
-        List<Object[]> rows = salesKpiRepository.getCustomerRetention(companyKey);
+        List<Object[]> rows = salesKpiRepository.getCustomerRetention(
+                companyKey,
+                startDate,
+                endDate
+        );
 
-        List<RetentionItem> result = new ArrayList<>();
+        return rows.stream()
+                .map(row -> {
+                    Map<String, Object> map = new HashMap<>();
 
-        for (Object[] row : rows) {
-            result.add(
-                    RetentionItem.builder()
-                            .label(row[0].toString())
-                            .value(row[1] != null ? ((Number) row[1]).doubleValue() : 0.0)
-                            .build()
-            );
-        }
+                    map.put("label", row[0]);
+                    map.put("value", row[1] != null ? ((Number) row[1]).doubleValue() : 0);
 
-        return result;
+                    return map;
+                })
+                .toList();
     }
 
     public List<Map<String, Object>> getHighValueDeals() {

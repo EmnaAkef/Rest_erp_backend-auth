@@ -8,6 +8,7 @@ import com.rest_erp.backend_bi_rest_erp.dto.sales.SalesKpiResponse;
 import com.rest_erp.backend_bi_rest_erp.service.sales.SalesKpiService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -49,9 +50,17 @@ public class SalesKpiController {
         return salesKpiService.getRevenueTrend(startDate, endDate);
     }
 
-    @GetMapping("/pipeline")
-    public List<PipelineItem> getPipeline() {
-        return salesKpiService.getPipelineDistribution();
+    @GetMapping("/pipeline-distribution")
+    public ResponseEntity<List<Map<String, Object>>> getPipelineDistribution(
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate
+    ) {
+        return ResponseEntity.ok(
+                salesKpiService.getPipelineDistribution(startDate, endDate)
+        );
     }
 
     @GetMapping("/recent-orders")
@@ -107,8 +116,16 @@ public class SalesKpiController {
     }
 
     @GetMapping("/customer-retention")
-    public List<RetentionItem> getCustomerRetention() {
-        return salesKpiService.getCustomerRetention();
+    public ResponseEntity<List<Map<String, Object>>> getCustomerRetention(
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate
+    ) {
+        return ResponseEntity.ok(
+                salesKpiService.getCustomerRetention(startDate, endDate)
+        );
     }
 
     @GetMapping("/high-value-deals")
