@@ -1,5 +1,6 @@
 package com.rest_erp.backend_bi_rest_erp.repository.hr;
 
+import com.rest_erp.backend_bi_rest_erp.dto.hr.HrFilterRequest;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import org.springframework.stereotype.Repository;
@@ -15,47 +16,134 @@ public class HrKpiRepository {
 
     private EntityManager entityManager;
 
-    public Long getTotalEmployees(Integer companyKey) {
-        String sql = """
-            SELECT COUNT(DISTINCT u.user_id)
-            FROM dim_user u
-            WHERE u.company_key = :companyKey
-              AND u.type = 'EMPLOYEE'
-              AND u.is_current = true
-        """;
+    private void appendEmployeeFilters(
+            StringBuilder sql,
+            String userAlias,
+            String departmentAlias,
+            HrFilterRequest filters
+    ) {
+        if (filters == null) {
+            return;
+        }
 
-        Object result = entityManager.createNativeQuery(sql)
-                .setParameter("companyKey", companyKey)
-                .getSingleResult();
+        if (filters.getDepartmentName() != null && !filters.getDepartmentName().isBlank()) {
+            sql.append(" AND ").append(departmentAlias).append(".department_name = :departmentName");
+        }
 
-        return result != null ? ((Number) result).longValue() : 0L;
+        if (filters.getEmployeeName() != null && !filters.getEmployeeName().isBlank()) {
+            sql.append(" AND ").append(userAlias).append(".user_name = :employeeName");
+        }
+
+        if (filters.getGender() != null && !filters.getGender().isBlank()) {
+            sql.append(" AND ").append(userAlias).append(".gender = :gender");
+        }
+
+        if (filters.getPosition() != null && !filters.getPosition().isBlank()) {
+            sql.append(" AND ").append(userAlias).append(".position = :position");
+        }
+
+        if (filters.getEmployeeType() != null && !filters.getEmployeeType().isBlank()) {
+            sql.append(" AND ").append(userAlias).append(".type = :employeeType");
+        }
+
+        if (filters.getActive() != null) {
+            sql.append(" AND ").append(userAlias).append(".active = :active");
+        }
     }
 
-    public Long getActiveEmployees(Integer companyKey) {
-        String sql = """
-            SELECT COUNT(DISTINCT u.user_id)
-            FROM dim_user u
-            WHERE u.company_key = :companyKey
-              AND u.type = 'EMPLOYEE'
-              AND u.active = true
-              AND u.is_current = true
-        """;
+    private void setEmployeeFilterParams(
+            jakarta.persistence.Query query,
+            HrFilterRequest filters
+    ) {
+        if (filters == null) {
+            return;
+        }
 
-        Object result = entityManager.createNativeQuery(sql)
-                .setParameter("companyKey", companyKey)
-                .getSingleResult();
+        if (filters.getDepartmentName() != null && !filters.getDepartmentName().isBlank()) {
+            query.setParameter("departmentName", filters.getDepartmentName());
+        }
 
-        return result != null ? ((Number) result).longValue() : 0L;
+        if (filters.getEmployeeName() != null && !filters.getEmployeeName().isBlank()) {
+            query.setParameter("employeeName", filters.getEmployeeName());
+        }
+
+        if (filters.getGender() != null && !filters.getGender().isBlank()) {
+            query.setParameter("gender", filters.getGender());
+        }
+
+        if (filters.getPosition() != null && !filters.getPosition().isBlank()) {
+            query.setParameter("position", filters.getPosition());
+        }
+
+        if (filters.getEmployeeType() != null && !filters.getEmployeeType().isBlank()) {
+            query.setParameter("employeeType", filters.getEmployeeType());
+        }
+
+        if (filters.getActive() != null) {
+            query.setParameter("active", filters.getActive());
+        }
     }
 
-    public Long getOnboardingEmployees(Integer companyKey, LocalDate startDate, LocalDate endDate) {
+    public Long getTotalEmployees(Integer companyKey, HrFilterRequest filters) {
         StringBuilder sql = new StringBuilder("""
-            SELECT COUNT(DISTINCT f.user_key)
-            FROM fact_employee_hr f
-            JOIN dim_date d ON d.date_key = f.date_key
-            WHERE f.company_key = :companyKey
-              AND f.onboarding_flag = 1
-        """);
+        SELECT COUNT(DISTINCT u.user_id)
+        FROM dim_user u
+        LEFT JOIN dim_department dep ON dep.department_key = u.department_key
+        WHERE u.company_key = :companyKey
+          AND u.type = 'EMPLOYEE'
+          AND u.is_current = true
+    """);
+
+        appendEmployeeFilters(sql, "u", "dep", filters);
+
+        var query = entityManager.createNativeQuery(sql.toString())
+                .setParameter("companyKey", companyKey);
+
+        setEmployeeFilterParams(query, filters);
+
+        Object result = query.getSingleResult();
+
+        return result != null ? ((Number) result).longValue() : 0L;
+    }
+
+    public Long getActiveEmployees(Integer companyKey, HrFilterRequest filters) {
+        StringBuilder sql = new StringBuilder("""
+        SELECT COUNT(DISTINCT u.user_id)
+        FROM dim_user u
+        LEFT JOIN dim_department dep ON dep.department_key = u.department_key
+        WHERE u.company_key = :companyKey
+          AND u.type = 'EMPLOYEE'
+          AND u.active = true
+          AND u.is_current = true
+    """);
+
+        appendEmployeeFilters(sql, "u", "dep", filters);
+
+        var query = entityManager.createNativeQuery(sql.toString())
+                .setParameter("companyKey", companyKey);
+
+        setEmployeeFilterParams(query, filters);
+
+        Object result = query.getSingleResult();
+
+        return result != null ? ((Number) result).longValue() : 0L;
+    }
+
+    public Long getOnboardingEmployees(
+            Integer companyKey,
+            LocalDate startDate,
+            LocalDate endDate,
+            HrFilterRequest filters
+    ) {
+        StringBuilder sql = new StringBuilder("""
+        SELECT COUNT(DISTINCT f.user_key)
+        FROM fact_employee_hr f
+        JOIN dim_date d ON d.date_key = f.date_key
+        LEFT JOIN dim_user u ON u.user_key = f.user_key
+        LEFT JOIN dim_department dep ON dep.department_key = f.department_key
+        WHERE f.company_key = :companyKey
+          AND f.onboarding_flag = 1
+    """);
 
         if (startDate != null) {
             sql.append(" AND d.full_date >= :startDate");
@@ -64,6 +152,8 @@ public class HrKpiRepository {
         if (endDate != null) {
             sql.append(" AND d.full_date <= :endDate");
         }
+
+        appendEmployeeFilters(sql, "u", "dep", filters);
 
         var query = entityManager.createNativeQuery(sql.toString())
                 .setParameter("companyKey", companyKey);
@@ -76,19 +166,28 @@ public class HrKpiRepository {
             query.setParameter("endDate", endDate);
         }
 
+        setEmployeeFilterParams(query, filters);
+
         Object result = query.getSingleResult();
 
         return result != null ? ((Number) result).longValue() : 0L;
     }
 
-    public Long getOffboardingEmployees(Integer companyKey, LocalDate startDate, LocalDate endDate) {
+    public Long getOffboardingEmployees(
+            Integer companyKey,
+            LocalDate startDate,
+            LocalDate endDate,
+            HrFilterRequest filters
+    ) {
         StringBuilder sql = new StringBuilder("""
-            SELECT COUNT(DISTINCT f.user_key)
-            FROM fact_employee_hr f
-            JOIN dim_date d ON d.date_key = f.date_key
-            WHERE f.company_key = :companyKey
-              AND f.offboarding_flag = 1
-        """);
+        SELECT COUNT(DISTINCT f.user_key)
+        FROM fact_employee_hr f
+        JOIN dim_date d ON d.date_key = f.date_key
+        LEFT JOIN dim_user u ON u.user_key = f.user_key
+        LEFT JOIN dim_department dep ON dep.department_key = f.department_key
+        WHERE f.company_key = :companyKey
+          AND f.offboarding_flag = 1
+    """);
 
         if (startDate != null) {
             sql.append(" AND d.full_date >= :startDate");
@@ -97,6 +196,8 @@ public class HrKpiRepository {
         if (endDate != null) {
             sql.append(" AND d.full_date <= :endDate");
         }
+
+        appendEmployeeFilters(sql, "u", "dep", filters);
 
         var query = entityManager.createNativeQuery(sql.toString())
                 .setParameter("companyKey", companyKey);
@@ -109,29 +210,42 @@ public class HrKpiRepository {
             query.setParameter("endDate", endDate);
         }
 
+        setEmployeeFilterParams(query, filters);
+
         Object result = query.getSingleResult();
 
         return result != null ? ((Number) result).longValue() : 0L;
     }
 
-    public BigDecimal getAverageTenureDays(Integer companyKey) {
-        String sql = """
-            SELECT COALESCE(AVG(f.tenure_days), 0)
-            FROM fact_employee_hr f
-            WHERE f.company_key = :companyKey
-              AND f.is_employee_flag = 1
-              AND f.is_active_flag = 1
-        """;
+    public BigDecimal getAverageTenureDays(Integer companyKey, HrFilterRequest filters) {
+        StringBuilder sql = new StringBuilder("""
+        SELECT COALESCE(AVG(f.tenure_days), 0)
+        FROM fact_employee_hr f
+        LEFT JOIN dim_user u ON u.user_key = f.user_key
+        LEFT JOIN dim_department dep ON dep.department_key = f.department_key
+        WHERE f.company_key = :companyKey
+          AND f.is_employee_flag = 1
+          AND f.is_active_flag = 1
+    """);
 
-        Object result = entityManager.createNativeQuery(sql)
-                .setParameter("companyKey", companyKey)
-                .getSingleResult();
+        appendEmployeeFilters(sql, "u", "dep", filters);
+
+        var query = entityManager.createNativeQuery(sql.toString())
+                .setParameter("companyKey", companyKey);
+
+        setEmployeeFilterParams(query, filters);
+
+        Object result = query.getSingleResult();
 
         return result != null ? new BigDecimal(result.toString()) : BigDecimal.ZERO;
     }
 
-    public BigDecimal getPresenceRate(Integer companyKey, LocalDate startDate, LocalDate endDate) {
-
+    public BigDecimal getPresenceRate(
+            Integer companyKey,
+            LocalDate startDate,
+            LocalDate endDate,
+            HrFilterRequest filters
+    ) {
         StringBuilder sql = new StringBuilder("""
         SELECT 
             CASE 
@@ -144,6 +258,9 @@ public class HrKpiRepository {
             END
         FROM fact_attendance_shift f
         JOIN dim_date d ON d.date_key = f.date_key
+        LEFT JOIN dim_user u ON u.user_key = f.user_key
+        LEFT JOIN dim_department dep ON dep.department_key = u.department_key
+        LEFT JOIN dim_workstatus ws ON ws.workstatus_key = f.workstatus_key
         WHERE f.company_key = :companyKey
     """);
 
@@ -153,6 +270,12 @@ public class HrKpiRepository {
 
         if (endDate != null) {
             sql.append(" AND d.full_date <= :endDate");
+        }
+
+        appendEmployeeFilters(sql, "u", "dep", filters);
+
+        if (filters != null && filters.getWorkstatusLabel() != null && !filters.getWorkstatusLabel().isBlank()) {
+            sql.append(" AND ws.status_label = :workstatusLabel");
         }
 
         var query = entityManager.createNativeQuery(sql.toString())
@@ -166,12 +289,23 @@ public class HrKpiRepository {
             query.setParameter("endDate", endDate);
         }
 
+        setEmployeeFilterParams(query, filters);
+
+        if (filters != null && filters.getWorkstatusLabel() != null && !filters.getWorkstatusLabel().isBlank()) {
+            query.setParameter("workstatusLabel", filters.getWorkstatusLabel());
+        }
+
         Object result = query.getSingleResult();
 
         return result != null ? new BigDecimal(result.toString()) : BigDecimal.ZERO;
     }
 
-    public BigDecimal getAbsenceRate(Integer companyKey, LocalDate startDate, LocalDate endDate) {
+    public BigDecimal getAbsenceRate(
+            Integer companyKey,
+            LocalDate startDate,
+            LocalDate endDate,
+            HrFilterRequest filters
+    ) {
 
         StringBuilder sql = new StringBuilder("""
         SELECT 
@@ -185,6 +319,9 @@ public class HrKpiRepository {
             END
         FROM fact_attendance_shift f
         JOIN dim_date d ON d.date_key = f.date_key
+        LEFT JOIN dim_user u ON u.user_key = f.user_key
+        LEFT JOIN dim_department dep ON dep.department_key = u.department_key
+        LEFT JOIN dim_workstatus ws ON ws.workstatus_key = f.workstatus_key
         WHERE f.company_key = :companyKey
     """);
 
@@ -196,6 +333,12 @@ public class HrKpiRepository {
             sql.append(" AND d.full_date <= :endDate");
         }
 
+        appendEmployeeFilters(sql, "u", "dep", filters);
+
+        if (filters != null && filters.getWorkstatusLabel() != null && !filters.getWorkstatusLabel().isBlank()) {
+            sql.append(" AND ws.status_label = :workstatusLabel");
+        }
+
         var query = entityManager.createNativeQuery(sql.toString())
                 .setParameter("companyKey", companyKey);
 
@@ -205,6 +348,12 @@ public class HrKpiRepository {
 
         if (endDate != null) {
             query.setParameter("endDate", endDate);
+        }
+
+        setEmployeeFilterParams(query, filters);
+
+        if (filters != null && filters.getWorkstatusLabel() != null && !filters.getWorkstatusLabel().isBlank()) {
+            query.setParameter("workstatusLabel", filters.getWorkstatusLabel());
         }
 
         Object result = query.getSingleResult();
@@ -212,12 +361,20 @@ public class HrKpiRepository {
         return result != null ? new BigDecimal(result.toString()) : BigDecimal.ZERO;
     }
 
-    public Long getLateCheckins(Integer companyKey, LocalDate startDate, LocalDate endDate) {
+    public Long getLateCheckins(
+            Integer companyKey,
+            LocalDate startDate,
+            LocalDate endDate,
+            HrFilterRequest filters
+    ) {
 
         StringBuilder sql = new StringBuilder("""
         SELECT COALESCE(SUM(f.late_checkin_count), 0)
         FROM fact_attendance_shift f
         JOIN dim_date d ON d.date_key = f.date_key
+        LEFT JOIN dim_user u ON u.user_key = f.user_key
+        LEFT JOIN dim_department dep ON dep.department_key = u.department_key
+        LEFT JOIN dim_workstatus ws ON ws.workstatus_key = f.workstatus_key
         WHERE f.company_key = :companyKey
     """);
 
@@ -229,6 +386,12 @@ public class HrKpiRepository {
             sql.append(" AND d.full_date <= :endDate");
         }
 
+        appendEmployeeFilters(sql, "u", "dep", filters);
+
+        if (filters != null && filters.getWorkstatusLabel() != null && !filters.getWorkstatusLabel().isBlank()) {
+            sql.append(" AND ws.status_label = :workstatusLabel");
+        }
+
         var query = entityManager.createNativeQuery(sql.toString())
                 .setParameter("companyKey", companyKey);
 
@@ -238,6 +401,12 @@ public class HrKpiRepository {
 
         if (endDate != null) {
             query.setParameter("endDate", endDate);
+        }
+
+        setEmployeeFilterParams(query, filters);
+
+        if (filters != null && filters.getWorkstatusLabel() != null && !filters.getWorkstatusLabel().isBlank()) {
+            query.setParameter("workstatusLabel", filters.getWorkstatusLabel());
         }
 
         Object result = query.getSingleResult();
@@ -245,12 +414,20 @@ public class HrKpiRepository {
         return result != null ? ((Number) result).longValue() : 0L;
     }
 
-    public BigDecimal getOvertimeHours(Integer companyKey, LocalDate startDate, LocalDate endDate) {
+    public BigDecimal getOvertimeHours(
+            Integer companyKey,
+            LocalDate startDate,
+            LocalDate endDate,
+            HrFilterRequest filters
+    ) {
 
         StringBuilder sql = new StringBuilder("""
         SELECT COALESCE(SUM(f.overtime_hours), 0)
         FROM fact_attendance_shift f
         JOIN dim_date d ON d.date_key = f.date_key
+        LEFT JOIN dim_user u ON u.user_key = f.user_key
+        LEFT JOIN dim_department dep ON dep.department_key = u.department_key
+        LEFT JOIN dim_workstatus ws ON ws.workstatus_key = f.workstatus_key
         WHERE f.company_key = :companyKey
     """);
 
@@ -260,6 +437,12 @@ public class HrKpiRepository {
 
         if (endDate != null) {
             sql.append(" AND d.full_date <= :endDate");
+        }
+
+        appendEmployeeFilters(sql, "u", "dep", filters);
+
+        if (filters != null && filters.getWorkstatusLabel() != null && !filters.getWorkstatusLabel().isBlank()) {
+            sql.append(" AND ws.status_label = :workstatusLabel");
         }
 
         var query = entityManager.createNativeQuery(sql.toString())
@@ -273,17 +456,30 @@ public class HrKpiRepository {
             query.setParameter("endDate", endDate);
         }
 
+        setEmployeeFilterParams(query, filters);
+
+        if (filters != null && filters.getWorkstatusLabel() != null && !filters.getWorkstatusLabel().isBlank()) {
+            query.setParameter("workstatusLabel", filters.getWorkstatusLabel());
+        }
+
         Object result = query.getSingleResult();
 
         return result != null ? new BigDecimal(result.toString()) : BigDecimal.ZERO;
     }
 
-    public BigDecimal getTotalPayroll(Integer companyKey, LocalDate startDate, LocalDate endDate) {
+    public BigDecimal getTotalPayroll(
+            Integer companyKey,
+            LocalDate startDate,
+            LocalDate endDate,
+            HrFilterRequest filters
+    ) {
 
         StringBuilder sql = new StringBuilder("""
         SELECT COALESCE(SUM(f.final_salary), 0)
         FROM fact_employee_hr f
         JOIN dim_date d ON d.date_key = f.date_key
+        LEFT JOIN dim_user u ON u.user_key = f.user_key
+        LEFT JOIN dim_department dep ON dep.department_key = f.department_key
         WHERE f.company_key = :companyKey
           AND f.is_paid_flag = 1
     """);
@@ -296,6 +492,8 @@ public class HrKpiRepository {
             sql.append(" AND d.full_date <= :endDate");
         }
 
+        appendEmployeeFilters(sql, "u", "dep", filters);
+
         var query = entityManager.createNativeQuery(sql.toString())
                 .setParameter("companyKey", companyKey);
 
@@ -307,17 +505,26 @@ public class HrKpiRepository {
             query.setParameter("endDate", endDate);
         }
 
+        setEmployeeFilterParams(query, filters);
+
         Object result = query.getSingleResult();
 
         return result != null ? new BigDecimal(result.toString()) : BigDecimal.ZERO;
     }
 
-    public BigDecimal getAverageSalary(Integer companyKey, LocalDate startDate, LocalDate endDate) {
+    public BigDecimal getAverageSalary(
+            Integer companyKey,
+            LocalDate startDate,
+            LocalDate endDate,
+            HrFilterRequest filters
+    ) {
 
         StringBuilder sql = new StringBuilder("""
         SELECT COALESCE(AVG(f.final_salary), 0)
         FROM fact_employee_hr f
         JOIN dim_date d ON d.date_key = f.date_key
+        LEFT JOIN dim_user u ON u.user_key = f.user_key
+        LEFT JOIN dim_department dep ON dep.department_key = f.department_key
         WHERE f.company_key = :companyKey
           AND f.final_salary IS NOT NULL
     """);
@@ -330,6 +537,8 @@ public class HrKpiRepository {
             sql.append(" AND d.full_date <= :endDate");
         }
 
+        appendEmployeeFilters(sql, "u", "dep", filters);
+
         var query = entityManager.createNativeQuery(sql.toString())
                 .setParameter("companyKey", companyKey);
 
@@ -341,6 +550,8 @@ public class HrKpiRepository {
             query.setParameter("endDate", endDate);
         }
 
+        setEmployeeFilterParams(query, filters);
+
         Object result = query.getSingleResult();
 
         return result != null ? new BigDecimal(result.toString()) : BigDecimal.ZERO;
@@ -349,7 +560,8 @@ public class HrKpiRepository {
     public List<Object[]> getHeadcountTrend(
             Integer companyKey,
             LocalDate startDate,
-            LocalDate endDate
+            LocalDate endDate,
+            HrFilterRequest filters
     ) {
         StringBuilder sql = new StringBuilder("""
         SELECT 
@@ -358,6 +570,10 @@ public class HrKpiRepository {
         FROM fact_employee_hr f
         JOIN dim_date d 
             ON d.date_key = f.date_key
+        LEFT JOIN dim_user u 
+            ON u.user_key = f.user_key
+        LEFT JOIN dim_department dep 
+            ON dep.department_key = f.department_key
         WHERE f.company_key = :companyKey
     """);
 
@@ -368,6 +584,8 @@ public class HrKpiRepository {
         if (endDate != null) {
             sql.append(" AND d.full_date <= :endDate");
         }
+
+        appendEmployeeFilters(sql, "u", "dep", filters);
 
         sql.append("""
         GROUP BY d.year, d.month, d.month_name
@@ -385,13 +603,16 @@ public class HrKpiRepository {
             query.setParameter("endDate", endDate);
         }
 
+        setEmployeeFilterParams(query, filters);
+
         return query.getResultList();
     }
 
-    public java.util.List<Object[]> getAttendanceTrend(
+    public List<Object[]> getAttendanceTrend(
             Integer companyKey,
             LocalDate startDate,
-            LocalDate endDate
+            LocalDate endDate,
+            HrFilterRequest filters
     ) {
         StringBuilder sql = new StringBuilder("""
         SELECT
@@ -406,6 +627,9 @@ public class HrKpiRepository {
             END AS absence_rate
         FROM fact_attendance_shift f
         JOIN dim_date d ON d.date_key = f.date_key
+        LEFT JOIN dim_user u ON u.user_key = f.user_key
+        LEFT JOIN dim_department dep ON dep.department_key = u.department_key
+        LEFT JOIN dim_workstatus ws ON ws.workstatus_key = f.workstatus_key
         WHERE f.company_key = :companyKey
     """);
 
@@ -415,6 +639,12 @@ public class HrKpiRepository {
 
         if (endDate != null) {
             sql.append(" AND d.full_date <= :endDate");
+        }
+
+        appendEmployeeFilters(sql, "u", "dep", filters);
+
+        if (filters != null && filters.getWorkstatusLabel() != null && !filters.getWorkstatusLabel().isBlank()) {
+            sql.append(" AND ws.status_label = :workstatusLabel");
         }
 
         sql.append("""
@@ -433,12 +663,20 @@ public class HrKpiRepository {
             query.setParameter("endDate", endDate);
         }
 
+        setEmployeeFilterParams(query, filters);
+
+        if (filters != null && filters.getWorkstatusLabel() != null && !filters.getWorkstatusLabel().isBlank()) {
+            query.setParameter("workstatusLabel", filters.getWorkstatusLabel());
+        }
+
         return query.getResultList();
     }
 
-    public java.util.List<Object[]> getTenureDistribution(Integer companyKey) {
-
-        String sql = """
+    public List<Object[]> getTenureDistribution(
+            Integer companyKey,
+            HrFilterRequest filters
+    ) {
+        StringBuilder sql = new StringBuilder("""
         SELECT
             CASE
                 WHEN f.tenure_days < 365 THEN '0-1 year'
@@ -448,8 +686,15 @@ public class HrKpiRepository {
             END AS tenure_group,
             COUNT(DISTINCT f.user_key) AS employee_count
         FROM fact_employee_hr f
+        LEFT JOIN dim_user u ON u.user_key = f.user_key
+        LEFT JOIN dim_department dep ON dep.department_key = f.department_key
         WHERE f.company_key = :companyKey
           AND f.tenure_days IS NOT NULL
+    """);
+
+        appendEmployeeFilters(sql, "u", "dep", filters);
+
+        sql.append("""
         GROUP BY tenure_group
         ORDER BY 
             CASE
@@ -473,25 +718,29 @@ public class HrKpiRepository {
                 END = '3-5 years' THEN 3
                 ELSE 4
             END
-    """;
+    """);
 
-        return entityManager.createNativeQuery(sql)
-                .setParameter("companyKey", companyKey)
-                .getResultList();
+        var query = entityManager.createNativeQuery(sql.toString())
+                .setParameter("companyKey", companyKey);
+
+        setEmployeeFilterParams(query, filters);
+
+        return query.getResultList();
     }
 
-    public java.util.List<Object[]> getEmployeesByDepartment(
+    public List<Object[]> getEmployeesByDepartment(
             Integer companyKey,
             LocalDate startDate,
-            LocalDate endDate
+            LocalDate endDate,
+            HrFilterRequest filters
     ) {
         StringBuilder sql = new StringBuilder("""
         SELECT 
-            COALESCE(d.department_name, 'Unknown Department') AS department,
+            COALESCE(dep.department_name, 'Unknown Department') AS department,
             COUNT(DISTINCT u.user_id) AS employee_count
         FROM dim_user u
-        LEFT JOIN dim_department d 
-            ON d.department_key = u.department_key
+        LEFT JOIN dim_department dep 
+            ON dep.department_key = u.department_key
         WHERE u.company_key = :companyKey
           AND UPPER(u.type) = 'EMPLOYEE'
     """);
@@ -510,8 +759,10 @@ public class HrKpiRepository {
         """);
         }
 
+        appendEmployeeFilters(sql, "u", "dep", filters);
+
         sql.append("""
-        GROUP BY d.department_name
+        GROUP BY dep.department_name
         ORDER BY employee_count DESC
     """);
 
@@ -523,15 +774,23 @@ public class HrKpiRepository {
             query.setParameter("endDate", endDate);
         }
 
+        setEmployeeFilterParams(query, filters);
+
         return query.getResultList();
     }
 
-    public Long getActiveJobOffers(Integer companyKey, LocalDate startDate, LocalDate endDate) {
+    public Long getActiveJobOffers(
+            Integer companyKey,
+            LocalDate startDate,
+            LocalDate endDate,
+            HrFilterRequest filters
+    ) {
 
         StringBuilder sql = new StringBuilder("""
         SELECT COALESCE(SUM(f.job_offers_count), 0)
         FROM fact_job_offer f
         JOIN dim_date d ON d.date_key = f.posting_date_key
+        LEFT JOIN dim_department dep ON dep.department_key = f.department_key
         WHERE f.company_key = :companyKey
           AND f.status IN ('OPEN', 'ACTIVE', 'PUBLISHED')
     """);
@@ -544,6 +803,10 @@ public class HrKpiRepository {
             sql.append(" AND d.full_date <= :endDate");
         }
 
+        if (filters != null && filters.getDepartmentName() != null && !filters.getDepartmentName().isBlank()) {
+            sql.append(" AND dep.department_name = :departmentName");
+        }
+
         var query = entityManager.createNativeQuery(sql.toString())
                 .setParameter("companyKey", companyKey);
 
@@ -555,17 +818,28 @@ public class HrKpiRepository {
             query.setParameter("endDate", endDate);
         }
 
+        if (filters != null && filters.getDepartmentName() != null && !filters.getDepartmentName().isBlank()) {
+            query.setParameter("departmentName", filters.getDepartmentName());
+        }
+
         Object result = query.getSingleResult();
 
         return result != null ? ((Number) result).longValue() : 0L;
     }
 
-    public Long getTotalApplications(Integer companyKey, LocalDate startDate, LocalDate endDate) {
+    public Long getTotalApplications(
+            Integer companyKey,
+            LocalDate startDate,
+            LocalDate endDate,
+            HrFilterRequest filters
+    ) {
 
         StringBuilder sql = new StringBuilder("""
         SELECT COALESCE(SUM(f.applications_count), 0)
         FROM fact_job_application f
         JOIN dim_date d ON d.date_key = f.submission_date_key
+        LEFT JOIN dim_user u ON u.user_key = f.submitted_user_key
+        LEFT JOIN dim_department dep ON dep.department_key = u.department_key
         WHERE f.company_key = :companyKey
     """);
 
@@ -577,6 +851,8 @@ public class HrKpiRepository {
             sql.append(" AND d.full_date <= :endDate");
         }
 
+        appendEmployeeFilters(sql, "u", "dep", filters);
+
         var query = entityManager.createNativeQuery(sql.toString())
                 .setParameter("companyKey", companyKey);
 
@@ -588,17 +864,26 @@ public class HrKpiRepository {
             query.setParameter("endDate", endDate);
         }
 
+        setEmployeeFilterParams(query, filters);
+
         Object result = query.getSingleResult();
 
         return result != null ? ((Number) result).longValue() : 0L;
     }
 
-    public Long getHiredApplications(Integer companyKey, LocalDate startDate, LocalDate endDate) {
+    public Long getHiredApplications(
+            Integer companyKey,
+            LocalDate startDate,
+            LocalDate endDate,
+            HrFilterRequest filters
+    ) {
 
         StringBuilder sql = new StringBuilder("""
         SELECT COALESCE(SUM(f.applications_count), 0)
         FROM fact_job_application f
         JOIN dim_date d ON d.date_key = f.submission_date_key
+        LEFT JOIN dim_user u ON u.user_key = f.submitted_user_key
+        LEFT JOIN dim_department dep ON dep.department_key = u.department_key
         WHERE f.company_key = :companyKey
           AND f.is_hired_flag = 1
     """);
@@ -611,6 +896,8 @@ public class HrKpiRepository {
             sql.append(" AND d.full_date <= :endDate");
         }
 
+        appendEmployeeFilters(sql, "u", "dep", filters);
+
         var query = entityManager.createNativeQuery(sql.toString())
                 .setParameter("companyKey", companyKey);
 
@@ -622,12 +909,19 @@ public class HrKpiRepository {
             query.setParameter("endDate", endDate);
         }
 
+        setEmployeeFilterParams(query, filters);
+
         Object result = query.getSingleResult();
 
         return result != null ? ((Number) result).longValue() : 0L;
     }
 
-    public BigDecimal getAbsenteeismVolatilityIndex(Integer companyKey, LocalDate startDate, LocalDate endDate) {
+    public BigDecimal getAbsenteeismVolatilityIndex(
+            Integer companyKey,
+            LocalDate startDate,
+            LocalDate endDate,
+            HrFilterRequest filters
+    ) {
 
         StringBuilder sql = new StringBuilder("""
         WITH monthly_absence AS (
@@ -641,6 +935,9 @@ public class HrKpiRepository {
                 END AS absence_rate_pct
             FROM fact_attendance_shift f
             JOIN dim_date d ON d.date_key = f.date_key
+            LEFT JOIN dim_user u ON u.user_key = f.user_key
+            LEFT JOIN dim_department dep ON dep.department_key = u.department_key
+            LEFT JOIN dim_workstatus ws ON ws.workstatus_key = f.workstatus_key
             WHERE f.company_key = :companyKey
     """);
 
@@ -650,6 +947,12 @@ public class HrKpiRepository {
 
         if (endDate != null) {
             sql.append(" AND d.full_date <= :endDate");
+        }
+
+        appendEmployeeFilters(sql, "u", "dep", filters);
+
+        if (filters != null && filters.getWorkstatusLabel() != null && !filters.getWorkstatusLabel().isBlank()) {
+            sql.append(" AND ws.status_label = :workstatusLabel");
         }
 
         sql.append("""
@@ -670,14 +973,21 @@ public class HrKpiRepository {
             query.setParameter("endDate", endDate);
         }
 
+        setEmployeeFilterParams(query, filters);
+
+        if (filters != null && filters.getWorkstatusLabel() != null && !filters.getWorkstatusLabel().isBlank()) {
+            query.setParameter("workstatusLabel", filters.getWorkstatusLabel());
+        }
+
         Object result = query.getSingleResult();
 
         return result != null ? new BigDecimal(result.toString()) : BigDecimal.ZERO;
     }
-    public java.util.List<Object[]> getSalaryBenchmarking(
+    public List<Object[]> getSalaryBenchmarking(
             Integer companyKey,
             LocalDate startDate,
-            LocalDate endDate
+            LocalDate endDate,
+            HrFilterRequest filters
     ) {
         StringBuilder sql = new StringBuilder("""
         SELECT
@@ -709,6 +1019,8 @@ public class HrKpiRepository {
         FROM fact_employee_hr f
         LEFT JOIN dim_department dep 
             ON dep.department_key = f.department_key
+        LEFT JOIN dim_user u
+            ON u.user_key = f.user_key
         JOIN dim_date d 
             ON d.date_key = f.date_key
         WHERE f.company_key = :companyKey
@@ -724,6 +1036,8 @@ public class HrKpiRepository {
         if (endDate != null) {
             sql.append(" AND d.full_date <= :endDate");
         }
+
+        appendEmployeeFilters(sql, "u", "dep", filters);
 
         sql.append("""
         GROUP BY dep.department_name
@@ -742,13 +1056,16 @@ public class HrKpiRepository {
             query.setParameter("endDate", endDate);
         }
 
+        setEmployeeFilterParams(query, filters);
+
         return query.getResultList();
     }
 
-    public java.util.List<Object[]> getHiringFunnel(
+    public List<Object[]> getHiringFunnel(
             Integer companyKey,
             LocalDate startDate,
-            LocalDate endDate
+            LocalDate endDate,
+            HrFilterRequest filters
     ) {
         StringBuilder sql = new StringBuilder("""
         SELECT stage, SUM(count_value) AS total_count
@@ -759,17 +1076,15 @@ public class HrKpiRepository {
                 1 AS stage_order
             FROM fact_job_application f
             JOIN dim_date d ON d.date_key = f.submission_date_key
+            LEFT JOIN dim_user u ON u.user_key = f.submitted_user_key
+            LEFT JOIN dim_department dep ON dep.department_key = u.department_key
             WHERE f.company_key = :companyKey
               AND UPPER(f.application_status) IN ('SUBMITTED', 'APPLICATIONS')
     """);
 
-        if (startDate != null) {
-            sql.append(" AND d.full_date >= :startDate");
-        }
-
-        if (endDate != null) {
-            sql.append(" AND d.full_date <= :endDate");
-        }
+        if (startDate != null) sql.append(" AND d.full_date >= :startDate");
+        if (endDate != null) sql.append(" AND d.full_date <= :endDate");
+        appendEmployeeFilters(sql, "u", "dep", filters);
 
         sql.append("""
             UNION ALL
@@ -780,17 +1095,15 @@ public class HrKpiRepository {
                 2 AS stage_order
             FROM fact_job_application f
             JOIN dim_date d ON d.date_key = f.submission_date_key
+            LEFT JOIN dim_user u ON u.user_key = f.submitted_user_key
+            LEFT JOIN dim_department dep ON dep.department_key = u.department_key
             WHERE f.company_key = :companyKey
               AND UPPER(f.application_status) IN ('SCREENING', 'SHORTLISTED')
     """);
 
-        if (startDate != null) {
-            sql.append(" AND d.full_date >= :startDate");
-        }
-
-        if (endDate != null) {
-            sql.append(" AND d.full_date <= :endDate");
-        }
+        if (startDate != null) sql.append(" AND d.full_date >= :startDate");
+        if (endDate != null) sql.append(" AND d.full_date <= :endDate");
+        appendEmployeeFilters(sql, "u", "dep", filters);
 
         sql.append("""
             UNION ALL
@@ -801,17 +1114,15 @@ public class HrKpiRepository {
                 3 AS stage_order
             FROM fact_job_application f
             JOIN dim_date d ON d.date_key = f.submission_date_key
+            LEFT JOIN dim_user u ON u.user_key = f.submitted_user_key
+            LEFT JOIN dim_department dep ON dep.department_key = u.department_key
             WHERE f.company_key = :companyKey
               AND UPPER(f.application_status) IN ('TECHNICAL', 'TECHNICAL_INTERVIEW', 'INTERVIEW')
     """);
 
-        if (startDate != null) {
-            sql.append(" AND d.full_date >= :startDate");
-        }
-
-        if (endDate != null) {
-            sql.append(" AND d.full_date <= :endDate");
-        }
+        if (startDate != null) sql.append(" AND d.full_date >= :startDate");
+        if (endDate != null) sql.append(" AND d.full_date <= :endDate");
+        appendEmployeeFilters(sql, "u", "dep", filters);
 
         sql.append("""
             UNION ALL
@@ -822,17 +1133,15 @@ public class HrKpiRepository {
                 4 AS stage_order
             FROM fact_job_application f
             JOIN dim_date d ON d.date_key = f.submission_date_key
+            LEFT JOIN dim_user u ON u.user_key = f.submitted_user_key
+            LEFT JOIN dim_department dep ON dep.department_key = u.department_key
             WHERE f.company_key = :companyKey
               AND UPPER(f.application_status) IN ('ACCEPTED', 'OFFER', 'OFFER_SENT', 'PROPOSED')
     """);
 
-        if (startDate != null) {
-            sql.append(" AND d.full_date >= :startDate");
-        }
-
-        if (endDate != null) {
-            sql.append(" AND d.full_date <= :endDate");
-        }
+        if (startDate != null) sql.append(" AND d.full_date >= :startDate");
+        if (endDate != null) sql.append(" AND d.full_date <= :endDate");
+        appendEmployeeFilters(sql, "u", "dep", filters);
 
         sql.append("""
             UNION ALL
@@ -843,6 +1152,8 @@ public class HrKpiRepository {
                 5 AS stage_order
             FROM fact_job_application f
             JOIN dim_date d ON d.date_key = f.submission_date_key
+            LEFT JOIN dim_user u ON u.user_key = f.submitted_user_key
+            LEFT JOIN dim_department dep ON dep.department_key = u.department_key
             WHERE f.company_key = :companyKey
               AND (
                     UPPER(f.application_status) IN ('HIRED')
@@ -850,13 +1161,9 @@ public class HrKpiRepository {
                   )
     """);
 
-        if (startDate != null) {
-            sql.append(" AND d.full_date >= :startDate");
-        }
-
-        if (endDate != null) {
-            sql.append(" AND d.full_date <= :endDate");
-        }
+        if (startDate != null) sql.append(" AND d.full_date >= :startDate");
+        if (endDate != null) sql.append(" AND d.full_date <= :endDate");
+        appendEmployeeFilters(sql, "u", "dep", filters);
 
         sql.append("""
         ) funnel
@@ -875,16 +1182,20 @@ public class HrKpiRepository {
             query.setParameter("endDate", endDate);
         }
 
+        setEmployeeFilterParams(query, filters);
+
         return query.getResultList();
     }
 
-    public java.util.List<Object[]> getUpcomingBirthdays(Integer companyKey) {
-
-        String sql = """
+    public List<Object[]> getUpcomingBirthdays(
+            Integer companyKey,
+            HrFilterRequest filters
+    ) {
+        StringBuilder sql = new StringBuilder("""
         WITH birthdays AS (
             SELECT
                 u.user_name AS employee,
-                COALESCE(d.department_name, 'Unknown Department') AS department,
+                COALESCE(dep.department_name, 'Unknown Department') AS department,
 
                 CASE
                     WHEN make_date(
@@ -905,12 +1216,17 @@ public class HrKpiRepository {
                     )
                 END AS next_birthday
             FROM dim_user u
-            LEFT JOIN dim_department d ON d.department_key = u.department_key
+            LEFT JOIN dim_department dep ON dep.department_key = u.department_key
             WHERE u.company_key = :companyKey
               AND u.birthdate IS NOT NULL
               AND u.is_current = true
               AND u.active = true
               AND u.type = 'EMPLOYEE'
+    """);
+
+        appendEmployeeFilters(sql, "u", "dep", filters);
+
+        sql.append("""
         )
         SELECT
             employee,
@@ -920,6 +1236,110 @@ public class HrKpiRepository {
         WHERE (next_birthday - CURRENT_DATE) BETWEEN 0 AND 30
         ORDER BY remaining_days ASC
         LIMIT 5
+    """);
+
+        var query = entityManager.createNativeQuery(sql.toString())
+                .setParameter("companyKey", companyKey);
+
+        setEmployeeFilterParams(query, filters);
+
+        return query.getResultList();
+    }
+
+    public List<String> getDepartmentOptions(Integer companyKey) {
+        String sql = """
+        SELECT DISTINCT
+            dep.department_name
+        FROM dim_department dep
+        WHERE dep.company_key = :companyKey
+          AND dep.department_name IS NOT NULL
+          AND TRIM(dep.department_name) <> ''
+        ORDER BY dep.department_name
+    """;
+
+        return entityManager.createNativeQuery(sql)
+                .setParameter("companyKey", companyKey)
+                .getResultList();
+    }
+
+    public List<String> getEmployeeOptions(Integer companyKey) {
+        String sql = """
+        SELECT DISTINCT
+            u.user_name
+        FROM dim_user u
+        WHERE u.company_key = :companyKey
+          AND u.type = 'EMPLOYEE'
+          AND u.user_name IS NOT NULL
+          AND TRIM(u.user_name) <> ''
+        ORDER BY u.user_name
+    """;
+
+        return entityManager.createNativeQuery(sql)
+                .setParameter("companyKey", companyKey)
+                .getResultList();
+    }
+
+    public List<String> getGenderOptions(Integer companyKey) {
+        String sql = """
+        SELECT DISTINCT
+            u.gender
+        FROM dim_user u
+        WHERE u.company_key = :companyKey
+          AND u.type = 'EMPLOYEE'
+          AND u.gender IS NOT NULL
+          AND TRIM(u.gender) <> ''
+        ORDER BY u.gender
+    """;
+
+        return entityManager.createNativeQuery(sql)
+                .setParameter("companyKey", companyKey)
+                .getResultList();
+    }
+
+    public List<String> getPositionOptions(Integer companyKey) {
+        String sql = """
+        SELECT DISTINCT
+            u.position
+        FROM dim_user u
+        WHERE u.company_key = :companyKey
+          AND u.type = 'EMPLOYEE'
+          AND u.position IS NOT NULL
+          AND TRIM(u.position) <> ''
+        ORDER BY u.position
+    """;
+
+        return entityManager.createNativeQuery(sql)
+                .setParameter("companyKey", companyKey)
+                .getResultList();
+    }
+
+    public List<String> getEmployeeTypeOptions(Integer companyKey) {
+        String sql = """
+        SELECT DISTINCT
+            u.type
+        FROM dim_user u
+        WHERE u.company_key = :companyKey
+          AND u.type IS NOT NULL
+          AND TRIM(u.type) <> ''
+        ORDER BY u.type
+    """;
+
+        return entityManager.createNativeQuery(sql)
+                .setParameter("companyKey", companyKey)
+                .getResultList();
+    }
+
+    public List<String> getWorkstatusOptions(Integer companyKey) {
+        String sql = """
+        SELECT DISTINCT
+            ws.status_label
+        FROM dim_workstatus ws
+        JOIN fact_attendance_shift f
+            ON f.workstatus_key = ws.workstatus_key
+        WHERE f.company_key = :companyKey
+          AND ws.status_label IS NOT NULL
+          AND TRIM(ws.status_label) <> ''
+        ORDER BY ws.status_label
     """;
 
         return entityManager.createNativeQuery(sql)

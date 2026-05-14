@@ -16,6 +16,8 @@ public class SalesKpiRepository {
     @PersistenceContext
     private EntityManager entityManager;
 
+
+
     public BigDecimal getTotalRevenue(
             Integer companyKey,
             LocalDate startDate,

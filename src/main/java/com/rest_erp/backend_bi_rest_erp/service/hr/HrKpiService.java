@@ -1,6 +1,6 @@
 package com.rest_erp.backend_bi_rest_erp.service.hr;
 
-import com.rest_erp.backend_bi_rest_erp.dto.hr.HrKpiResponse;
+import com.rest_erp.backend_bi_rest_erp.dto.hr.*;
 import com.rest_erp.backend_bi_rest_erp.repository.CommonRepository;
 import com.rest_erp.backend_bi_rest_erp.repository.hr.HrKpiRepository;
 import com.rest_erp.backend_bi_rest_erp.tenant.TenantContext;
@@ -22,13 +22,13 @@ public class HrKpiService {
     private final HrKpiRepository hrKpiRepository;
     private final CommonRepository commonRepository;
 
-    public HrKpiResponse getHrKpis(LocalDate startDate, LocalDate endDate) {
+    public HrKpiResponse getHrKpis(LocalDate startDate, LocalDate endDate, HrFilterRequest filters) {
 
         Integer companyKey = TenantContext.getCompanyKey();
         String currency = commonRepository.getCompanyCurrency(companyKey);
 
-        Long totalEmployees = hrKpiRepository.getTotalEmployees(companyKey);
-        Long activeEmployees = hrKpiRepository.getActiveEmployees(companyKey);
+        Long totalEmployees = hrKpiRepository.getTotalEmployees(companyKey, filters);
+        Long activeEmployees = hrKpiRepository.getActiveEmployees(companyKey, filters);
 
         Long inactiveEmployees = Math.max(
                 0L,
@@ -36,8 +36,8 @@ public class HrKpiService {
                         - (activeEmployees != null ? activeEmployees : 0L)
         );
 
-        Long onboardingEmployees = hrKpiRepository.getOnboardingEmployees(companyKey, startDate, endDate);
-        Long offboardingEmployees = hrKpiRepository.getOffboardingEmployees(companyKey, startDate, endDate);
+        Long onboardingEmployees = hrKpiRepository.getOnboardingEmployees(companyKey, startDate, endDate, filters);
+        Long offboardingEmployees = hrKpiRepository.getOffboardingEmployees(companyKey, startDate, endDate, filters);
 
         BigDecimal attritionRate = BigDecimal.ZERO;
 
@@ -47,18 +47,18 @@ public class HrKpiService {
                     .divide(BigDecimal.valueOf(activeEmployees), 2, RoundingMode.HALF_UP);
         }
 
-        BigDecimal averageTenureDays = hrKpiRepository.getAverageTenureDays(companyKey);
+        BigDecimal averageTenureDays = hrKpiRepository.getAverageTenureDays(companyKey, filters);
 
         BigDecimal averageTenureYears = averageTenureDays
                 .divide(BigDecimal.valueOf(365), 2, RoundingMode.HALF_UP);
 
-        BigDecimal presenceRate = hrKpiRepository.getPresenceRate(companyKey, startDate, endDate);
-        BigDecimal absenceRate = hrKpiRepository.getAbsenceRate(companyKey, startDate, endDate);
-        Long lateCheckins = hrKpiRepository.getLateCheckins(companyKey, startDate, endDate);
-        BigDecimal overtimeHours = hrKpiRepository.getOvertimeHours(companyKey, startDate, endDate);
+        BigDecimal presenceRate = hrKpiRepository.getPresenceRate(companyKey, startDate, endDate, filters);
+        BigDecimal absenceRate = hrKpiRepository.getAbsenceRate(companyKey, startDate, endDate, filters);
+        Long lateCheckins = hrKpiRepository.getLateCheckins(companyKey, startDate, endDate, filters);
+        BigDecimal overtimeHours = hrKpiRepository.getOvertimeHours(companyKey, startDate, endDate, filters);
 
-        BigDecimal totalPayroll = hrKpiRepository.getTotalPayroll(companyKey, startDate, endDate);
-        BigDecimal averageSalary = hrKpiRepository.getAverageSalary(companyKey, startDate, endDate);
+        BigDecimal totalPayroll = hrKpiRepository.getTotalPayroll(companyKey, startDate, endDate, filters);
+        BigDecimal averageSalary = hrKpiRepository.getAverageSalary(companyKey, startDate, endDate, filters);
 
         BigDecimal averageCostPerEmployee = BigDecimal.ZERO;
         if (activeEmployees != null && activeEmployees > 0) {
@@ -69,9 +69,9 @@ public class HrKpiService {
             );
         }
 
-        Long activeJobOffers = hrKpiRepository.getActiveJobOffers(companyKey, startDate, endDate);
-        Long totalApplications = hrKpiRepository.getTotalApplications(companyKey, startDate, endDate);
-        Long hiredApplications = hrKpiRepository.getHiredApplications(companyKey, startDate, endDate);
+        Long activeJobOffers = hrKpiRepository.getActiveJobOffers(companyKey, startDate, endDate, filters);
+        Long totalApplications = hrKpiRepository.getTotalApplications(companyKey, startDate, endDate, filters);
+        Long hiredApplications = hrKpiRepository.getHiredApplications(companyKey, startDate, endDate, filters);
 
         BigDecimal conversionRate = BigDecimal.ZERO;
         if (totalApplications != null && totalApplications > 0) {
@@ -81,7 +81,7 @@ public class HrKpiService {
         }
 
         BigDecimal absenteeismVolatilityIndex =
-                hrKpiRepository.getAbsenteeismVolatilityIndex(companyKey, startDate, endDate);
+                hrKpiRepository.getAbsenteeismVolatilityIndex(companyKey, startDate, endDate, filters);
 
         BigDecimal lateArrivalPenalty = BigDecimal.ZERO;
         if (lateCheckins != null && lateCheckins > 0) {
@@ -141,10 +141,10 @@ public class HrKpiService {
                 .build();
     }
 
-    public List<Map<String, Object>> getHeadcountTrend(LocalDate startDate, LocalDate endDate) {
+    public List<Map<String, Object>> getHeadcountTrend(LocalDate startDate, LocalDate endDate, HrFilterRequest filters) {
         Integer companyKey = TenantContext.getCompanyKey();
 
-        List<Object[]> rows = hrKpiRepository.getHeadcountTrend(companyKey, startDate, endDate);
+        List<Object[]> rows = hrKpiRepository.getHeadcountTrend(companyKey, startDate, endDate, filters);
 
         return rows.stream()
                 .map(row -> {
@@ -158,13 +158,10 @@ public class HrKpiService {
                 .toList();
     }
 
-    public java.util.List<com.rest_erp.backend_bi_rest_erp.dto.hr.AttendanceTrendItem> getAttendanceTrend(
-            LocalDate startDate,
-            LocalDate endDate
-    ) {
+    public List<AttendanceTrendItem> getAttendanceTrend(LocalDate startDate, LocalDate endDate, HrFilterRequest filters) {
         Integer companyKey = TenantContext.getCompanyKey();
 
-        java.util.List<Object[]> rows = hrKpiRepository.getAttendanceTrend(companyKey, startDate, endDate);
+        java.util.List<Object[]> rows = hrKpiRepository.getAttendanceTrend(companyKey, startDate, endDate, filters);
 
         java.util.List<com.rest_erp.backend_bi_rest_erp.dto.hr.AttendanceTrendItem> result =
                 new java.util.ArrayList<>();
@@ -182,11 +179,11 @@ public class HrKpiService {
         return result;
     }
 
-    public java.util.List<com.rest_erp.backend_bi_rest_erp.dto.hr.TenureDistributionItem> getTenureDistribution() {
+    public List<TenureDistributionItem> getTenureDistribution(HrFilterRequest filters) {
 
         Integer companyKey = TenantContext.getCompanyKey();
 
-        java.util.List<Object[]> rows = hrKpiRepository.getTenureDistribution(companyKey);
+        java.util.List<Object[]> rows = hrKpiRepository.getTenureDistribution(companyKey, filters);
 
         java.util.List<com.rest_erp.backend_bi_rest_erp.dto.hr.TenureDistributionItem> result =
                 new java.util.ArrayList<>();
@@ -203,16 +200,13 @@ public class HrKpiService {
         return result;
     }
 
-    public List<Map<String, Object>> getEmployeesByDepartment(
-            LocalDate startDate,
-            LocalDate endDate
-    ) {
+    public List<Map<String, Object>> getEmployeesByDepartment(LocalDate startDate, LocalDate endDate, HrFilterRequest filters) {
         Integer companyKey = TenantContext.getCompanyKey();
 
         List<Object[]> rows = hrKpiRepository.getEmployeesByDepartment(
                 companyKey,
                 startDate,
-                endDate
+                endDate, filters
         );
 
         return rows.stream()
@@ -227,14 +221,11 @@ public class HrKpiService {
                 .toList();
     }
 
-    public java.util.List<com.rest_erp.backend_bi_rest_erp.dto.hr.SalaryBenchmarkItem> getSalaryBenchmarking(
-            LocalDate startDate,
-            LocalDate endDate
-    ) {
+    public List<SalaryBenchmarkItem> getSalaryBenchmarking(LocalDate startDate, LocalDate endDate, HrFilterRequest filters) {
         Integer companyKey = TenantContext.getCompanyKey();
 
         java.util.List<Object[]> rows =
-                hrKpiRepository.getSalaryBenchmarking(companyKey, startDate, endDate);
+                hrKpiRepository.getSalaryBenchmarking(companyKey, startDate, endDate, filters);
 
         java.util.List<com.rest_erp.backend_bi_rest_erp.dto.hr.SalaryBenchmarkItem> result =
                 new java.util.ArrayList<>();
@@ -252,14 +243,11 @@ public class HrKpiService {
         return result;
     }
 
-    public java.util.List<com.rest_erp.backend_bi_rest_erp.dto.hr.HiringFunnelItem> getHiringFunnel(
-            LocalDate startDate,
-            LocalDate endDate
-    ) {
+    public List<HiringFunnelItem> getHiringFunnel(LocalDate startDate, LocalDate endDate, HrFilterRequest filters) {
         Integer companyKey = TenantContext.getCompanyKey();
 
         java.util.List<Object[]> rows =
-                hrKpiRepository.getHiringFunnel(companyKey, startDate, endDate);
+                hrKpiRepository.getHiringFunnel(companyKey, startDate, endDate, filters);
 
         java.util.List<com.rest_erp.backend_bi_rest_erp.dto.hr.HiringFunnelItem> result =
                 new java.util.ArrayList<>();
@@ -276,11 +264,11 @@ public class HrKpiService {
         return result;
     }
 
-    public java.util.List<com.rest_erp.backend_bi_rest_erp.dto.hr.UpcomingBirthdayItem> getUpcomingBirthdays() {
+    public List<UpcomingBirthdayItem> getUpcomingBirthdays(HrFilterRequest filters) {
 
         Integer companyKey = TenantContext.getCompanyKey();
 
-        java.util.List<Object[]> rows = hrKpiRepository.getUpcomingBirthdays(companyKey);
+        java.util.List<Object[]> rows = hrKpiRepository.getUpcomingBirthdays(companyKey, filters);
 
         java.util.List<com.rest_erp.backend_bi_rest_erp.dto.hr.UpcomingBirthdayItem> result =
                 new java.util.ArrayList<>();
@@ -298,7 +286,112 @@ public class HrKpiService {
         return result;
     }
 
+    public List<HrFilterOption> getDepartmentOptions() {
+        Integer companyKey = TenantContext.getCompanyKey();
 
+        List<String> rows = hrKpiRepository.getDepartmentOptions(companyKey);
+        List<HrFilterOption> result = new ArrayList<>();
 
+        for (String value : rows) {
+            result.add(
+                    HrFilterOption.builder()
+                            .value(value)
+                            .label(value)
+                            .build()
+            );
+        }
+
+        return result;
+    }
+
+    public List<HrFilterOption> getEmployeeOptions() {
+        Integer companyKey = TenantContext.getCompanyKey();
+
+        List<String> rows = hrKpiRepository.getEmployeeOptions(companyKey);
+        List<HrFilterOption> result = new ArrayList<>();
+
+        for (String value : rows) {
+            result.add(
+                    HrFilterOption.builder()
+                            .value(value)
+                            .label(value)
+                            .build()
+            );
+        }
+
+        return result;
+    }
+
+    public List<HrFilterOption> getGenderOptions() {
+        Integer companyKey = TenantContext.getCompanyKey();
+
+        List<String> rows = hrKpiRepository.getGenderOptions(companyKey);
+        List<HrFilterOption> result = new ArrayList<>();
+
+        for (String value : rows) {
+            result.add(
+                    HrFilterOption.builder()
+                            .value(value)
+                            .label(value)
+                            .build()
+            );
+        }
+
+        return result;
+    }
+
+    public List<HrFilterOption> getPositionOptions() {
+        Integer companyKey = TenantContext.getCompanyKey();
+
+        List<String> rows = hrKpiRepository.getPositionOptions(companyKey);
+        List<HrFilterOption> result = new ArrayList<>();
+
+        for (String value : rows) {
+            result.add(
+                    HrFilterOption.builder()
+                            .value(value)
+                            .label(value)
+                            .build()
+            );
+        }
+
+        return result;
+    }
+
+    public List<HrFilterOption> getEmployeeTypeOptions() {
+        Integer companyKey = TenantContext.getCompanyKey();
+
+        List<String> rows = hrKpiRepository.getEmployeeTypeOptions(companyKey);
+        List<HrFilterOption> result = new ArrayList<>();
+
+        for (String value : rows) {
+            result.add(
+                    HrFilterOption.builder()
+                            .value(value)
+                            .label(value)
+                            .build()
+            );
+        }
+
+        return result;
+    }
+
+    public List<HrFilterOption> getWorkstatusOptions() {
+        Integer companyKey = TenantContext.getCompanyKey();
+
+        List<String> rows = hrKpiRepository.getWorkstatusOptions(companyKey);
+        List<HrFilterOption> result = new ArrayList<>();
+
+        for (String value : rows) {
+            result.add(
+                    HrFilterOption.builder()
+                            .value(value)
+                            .label(value)
+                            .build()
+            );
+        }
+
+        return result;
+    }
 
 }
