@@ -1,27 +1,33 @@
 package com.rest_erp.backend_bi_rest_erp.service.finance;
 
 import com.rest_erp.backend_bi_rest_erp.dto.finance.*;
+import com.rest_erp.backend_bi_rest_erp.repository.CommonRepository;
 import com.rest_erp.backend_bi_rest_erp.repository.finance.FinanceKpiRepository;
 import com.rest_erp.backend_bi_rest_erp.tenant.TenantContext;
 import lombok.RequiredArgsConstructor;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.List;
-import com.rest_erp.backend_bi_rest_erp.repository.CommonRepository;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 @Service
 @RequiredArgsConstructor
 public class FinanceKpiService {
 
     private final CommonRepository commonRepository;
     private final FinanceKpiRepository financeKpiRepository;
+    private final JdbcTemplate jdbcTemplate;
+    private final NamedParameterJdbcTemplate namedParameterJdbcTemplate;
 
-
-
-    public FinanceKpiResponse getFinanceKpis(LocalDate startDate, LocalDate endDate) {
-
+    public FinanceKpiResponse getFinanceKpis(
+            LocalDate startDate,
+            LocalDate endDate,
+            FinanceFilterRequest filters
+    ) {
         Integer companyKey = TenantContext.getCompanyKey();
 
         String currency = commonRepository.getCompanyCurrency(companyKey);
@@ -29,33 +35,107 @@ public class FinanceKpiService {
         Integer startDateKey = toDateKey(startDate);
         Integer endDateKey = toDateKey(endDate);
 
-        BigDecimal totalRevenue = financeKpiRepository.getTotalRevenue(companyKey, startDateKey, endDateKey);
-        BigDecimal totalExpenses = financeKpiRepository.getTotalExpenses(companyKey, startDateKey, endDateKey);
+        BigDecimal totalRevenue = financeKpiRepository.getTotalRevenue(
+                companyKey,
+                startDateKey,
+                endDateKey,
+                filters
+        );
+
+        BigDecimal totalExpenses = financeKpiRepository.getTotalExpenses(
+                companyKey,
+                startDateKey,
+                endDateKey,
+                filters
+        );
 
         BigDecimal netProfit = totalRevenue.subtract(totalExpenses);
         BigDecimal grossMarginPercentage = calculateGrossMargin(totalRevenue, totalExpenses);
 
-        BigDecimal cashBalance = financeKpiRepository.getCashBalance(companyKey, startDateKey, endDateKey);
-        BigDecimal bankAccountBalance = financeKpiRepository.getBankAccountBalance(companyKey, startDateKey, endDateKey);
-        BigDecimal totalLiabilities = financeKpiRepository.getTotalLiabilities(companyKey, startDateKey, endDateKey);
+        BigDecimal cashBalance = financeKpiRepository.getCashBalance(
+                companyKey,
+                startDateKey,
+                endDateKey,
+                filters
+        );
 
-        BigDecimal accountsReceivable = financeKpiRepository.getAccountsReceivable(companyKey, startDateKey, endDateKey);
-        BigDecimal accountsPayable = financeKpiRepository.getAccountsPayable(companyKey, startDateKey, endDateKey);
+        BigDecimal bankAccountBalance = financeKpiRepository.getBankAccountBalance(
+                companyKey,
+                startDateKey,
+                endDateKey,
+                filters
+        );
 
-        Integer numberOfOpenInvoices = financeKpiRepository.getNumberOfOpenInvoices(companyKey, startDateKey, endDateKey);
-        Integer dueInvoices = financeKpiRepository.getDueInvoices(companyKey, startDateKey, endDateKey);
+        BigDecimal totalLiabilities = financeKpiRepository.getTotalLiabilities(
+                companyKey,
+                startDateKey,
+                endDateKey,
+                filters
+        );
 
-        BigDecimal assetValue = financeKpiRepository.getAssetValue(companyKey, startDateKey, endDateKey);
-        BigDecimal depreciationExpense = financeKpiRepository.getDepreciationExpense(companyKey, startDateKey, endDateKey);
+        BigDecimal accountsReceivable = financeKpiRepository.getAccountsReceivable(
+                companyKey,
+                startDateKey,
+                endDateKey,
+                filters
+        );
 
-        BigDecimal vatCollected = financeKpiRepository.getVatCollected(companyKey, startDateKey, endDateKey);
-        BigDecimal vatFromBills = financeKpiRepository.getVatFromBills(companyKey, startDateKey, endDateKey);
+        BigDecimal accountsPayable = financeKpiRepository.getAccountsPayable(
+                companyKey,
+                startDateKey,
+                endDateKey,
+                filters
+        );
+
+        Integer numberOfOpenInvoices = financeKpiRepository.getNumberOfOpenInvoices(
+                companyKey,
+                startDateKey,
+                endDateKey,
+                filters
+        );
+
+        Integer dueInvoices = financeKpiRepository.getDueInvoices(
+                companyKey,
+                startDateKey,
+                endDateKey,
+                filters
+        );
+
+        BigDecimal assetValue = financeKpiRepository.getAssetValue(
+                companyKey,
+                startDateKey,
+                endDateKey,
+                filters
+        );
+
+        BigDecimal depreciationExpense = financeKpiRepository.getDepreciationExpense(
+                companyKey,
+                startDateKey,
+                endDateKey,
+                filters
+        );
+
+        BigDecimal vatCollected = financeKpiRepository.getVatCollected(
+                companyKey,
+                startDateKey,
+                endDateKey,
+                filters
+        );
+
+        BigDecimal vatFromBills = financeKpiRepository.getVatFromBills(
+                companyKey,
+                startDateKey,
+                endDateKey,
+                filters
+        );
+
         BigDecimal vatPayable = vatCollected.subtract(vatFromBills);
 
         BigDecimal currentLiabilities = financeKpiRepository.getCurrentLiabilities(
                 companyKey,
                 startDateKey,
-                endDateKey
+                endDateKey,
+                filters
         );
 
         BigDecimal liquidityRatio = calculateLiquidityRatio(
@@ -83,6 +163,110 @@ public class FinanceKpiService {
                 .vatCollected(vatCollected)
                 .vatPayable(vatPayable)
                 .build();
+    }
+
+    public List<FinanceRevenueProfitTrendItem> getRevenueProfitTrend(
+            LocalDate startDate,
+            LocalDate endDate,
+            FinanceFilterRequest filters
+    ) {
+        Integer companyKey = TenantContext.getCompanyKey();
+
+        Integer startDateKey = toDateKey(startDate);
+        Integer endDateKey = toDateKey(endDate);
+
+        return financeKpiRepository.getRevenueProfitTrend(
+                companyKey,
+                startDateKey,
+                endDateKey,
+                filters
+        );
+    }
+
+    public List<FinanceCashFlowTrendItem> getCashFlowTrend(
+            LocalDate startDate,
+            LocalDate endDate,
+            FinanceFilterRequest filters
+    ) {
+        Integer companyKey = TenantContext.getCompanyKey();
+
+        Integer startDateKey = toDateKey(startDate);
+        Integer endDateKey = toDateKey(endDate);
+
+        return financeKpiRepository.getCashFlowTrend(
+                companyKey,
+                startDateKey,
+                endDateKey,
+                filters
+        );
+    }
+
+    public List<FinanceOutstandingInvoiceItem> getTopOutstandingInvoices(
+            LocalDate startDate,
+            LocalDate endDate,
+            FinanceFilterRequest filters
+    ) {
+        Integer companyKey = TenantContext.getCompanyKey();
+
+        Integer startDateKey = toDateKey(startDate);
+        Integer endDateKey = toDateKey(endDate);
+
+        return financeKpiRepository.getTopOutstandingInvoices(
+                companyKey,
+                startDateKey,
+                endDateKey,
+                filters
+        );
+    }
+
+    public FinanceLiabilityAssetItem getLiabilityVsAssets(
+            LocalDate startDate,
+            LocalDate endDate,
+            FinanceFilterRequest filters
+    ) {
+        Integer companyKey = TenantContext.getCompanyKey();
+
+        Integer startDateKey = toDateKey(startDate);
+        Integer endDateKey = toDateKey(endDate);
+
+        return financeKpiRepository.getLiabilityVsAssets(
+                companyKey,
+                startDateKey,
+                endDateKey,
+                filters
+        );
+    }
+
+    public List<FinanceAssetDistributionItem> getAssetDistribution(
+            LocalDate endDate,
+            FinanceFilterRequest filters
+    ) {
+        Integer companyKey = TenantContext.getCompanyKey();
+        Integer endDateKey = toDateKey(endDate);
+
+        return financeKpiRepository.getAssetDistribution(
+                companyKey,
+                endDateKey,
+                filters
+        );
+    }
+
+    public FinanceComplianceSummaryResponse getComplianceSummary(
+            LocalDate startDate,
+            LocalDate endDate,
+            FinanceFilterRequest filters
+    ) {
+        Integer companyKey = TenantContext.getCompanyKey();
+
+        Integer startDateKey = toDateKey(startDate);
+        Integer endDateKey = toDateKey(endDate);
+
+        return financeKpiRepository.getComplianceSummary(
+                companyKey,
+                startDateKey,
+                endDateKey,
+                filters
+        );
     }
 
     private BigDecimal calculateGrossMargin(BigDecimal revenue, BigDecimal expenses) {
@@ -114,56 +298,5 @@ public class FinanceKpiService {
         return date.getYear() * 10000
                 + date.getMonthValue() * 100
                 + date.getDayOfMonth();
-    }
-
-    public List<FinanceRevenueProfitTrendItem> getRevenueProfitTrend(LocalDate startDate, LocalDate endDate) {
-        Integer companyKey = TenantContext.getCompanyKey();
-
-        Integer startDateKey = toDateKey(startDate);
-        Integer endDateKey = toDateKey(endDate);
-
-        return financeKpiRepository.getRevenueProfitTrend(companyKey, startDateKey, endDateKey);
-    }
-    public List<FinanceCashFlowTrendItem> getCashFlowTrend(LocalDate startDate, LocalDate endDate) {
-        Integer companyKey = TenantContext.getCompanyKey();
-
-        Integer startDateKey = toDateKey(startDate);
-        Integer endDateKey = toDateKey(endDate);
-
-        return financeKpiRepository.getCashFlowTrend(companyKey, startDateKey, endDateKey);
-    }
-    public List<FinanceOutstandingInvoiceItem> getTopOutstandingInvoices(LocalDate startDate, LocalDate endDate) {
-        Integer companyKey = TenantContext.getCompanyKey();
-
-        Integer startDateKey = toDateKey(startDate);
-        Integer endDateKey = toDateKey(endDate);
-
-        return financeKpiRepository.getTopOutstandingInvoices(companyKey, startDateKey, endDateKey);
-    }
-    public FinanceLiabilityAssetItem getLiabilityVsAssets(LocalDate startDate, LocalDate endDate) {
-        Integer companyKey = TenantContext.getCompanyKey();
-
-        Integer startDateKey = toDateKey(startDate);
-        Integer endDateKey = toDateKey(endDate);
-
-        return financeKpiRepository.getLiabilityVsAssets(companyKey, startDateKey, endDateKey);
-    }
-    public List<FinanceAssetDistributionItem> getAssetDistribution(LocalDate endDate) {
-        Integer companyKey = TenantContext.getCompanyKey();
-        Integer endDateKey = toDateKey(endDate);
-
-        return financeKpiRepository.getAssetDistribution(companyKey, endDateKey);
-    }
-    public FinanceComplianceSummaryResponse getComplianceSummary(LocalDate startDate, LocalDate endDate) {
-        Integer companyKey = TenantContext.getCompanyKey();
-
-        Integer startDateKey = toDateKey(startDate);
-        Integer endDateKey = toDateKey(endDate);
-
-        return financeKpiRepository.getComplianceSummary(
-                companyKey,
-                startDateKey,
-                endDateKey
-        );
     }
 }

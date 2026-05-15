@@ -1,10 +1,5 @@
 package com.rest_erp.backend_bi_rest_erp.repository.finance;
-import com.rest_erp.backend_bi_rest_erp.dto.finance.FinanceAssetDistributionItem;
-import com.rest_erp.backend_bi_rest_erp.dto.finance.FinanceCashFlowTrendItem;
-import com.rest_erp.backend_bi_rest_erp.dto.finance.FinanceComplianceSummaryResponse;
-import com.rest_erp.backend_bi_rest_erp.dto.finance.FinanceLiabilityAssetItem;
-import com.rest_erp.backend_bi_rest_erp.dto.finance.FinanceOutstandingInvoiceItem;
-import com.rest_erp.backend_bi_rest_erp.dto.finance.FinanceRevenueProfitTrendItem;
+import com.rest_erp.backend_bi_rest_erp.dto.finance.*;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
@@ -13,15 +8,200 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 @Repository
 public class FinanceKpiRepository {
 
     private final JdbcTemplate jdbcTemplate;
+    private final NamedParameterJdbcTemplate namedParameterJdbcTemplate;
 
-    public FinanceKpiRepository(JdbcTemplate jdbcTemplate) {
+    public FinanceKpiRepository(
+            JdbcTemplate jdbcTemplate,
+            NamedParameterJdbcTemplate namedParameterJdbcTemplate
+    ) {
         this.jdbcTemplate = jdbcTemplate;
+        this.namedParameterJdbcTemplate = namedParameterJdbcTemplate;
+    }
+    private boolean hasText(String value) {
+        return value != null && !value.isBlank();
     }
 
+    private BigDecimal queryForBigDecimalNamed(StringBuilder sql, MapSqlParameterSource params) {
+        BigDecimal result = namedParameterJdbcTemplate.queryForObject(
+                sql.toString(),
+                params,
+                BigDecimal.class
+        );
+
+        return result != null ? result : BigDecimal.ZERO;
+    }
+
+    private Integer queryForIntegerNamed(StringBuilder sql, MapSqlParameterSource params) {
+        Integer result = namedParameterJdbcTemplate.queryForObject(
+                sql.toString(),
+                params,
+                Integer.class
+        );
+
+        return result != null ? result : 0;
+    }
+
+    private void appendCustomerFilters(
+            StringBuilder sql,
+            MapSqlParameterSource params,
+            String customerAlias,
+            String statusAlias,
+            String amountExpression,
+            FinanceFilterRequest filters
+    ) {
+        if (filters == null) {
+            return;
+        }
+
+        if (hasText(filters.getCustomerName())) {
+            sql.append("""
+            AND LOWER(COALESCE(
+                NULLIF(TRIM(%s.organization_name), ''),
+                NULLIF(TRIM(%s.contact_name), ''),
+                'Unknown Customer'
+            )) = LOWER(:customerName)
+        """.formatted(customerAlias, customerAlias));
+            params.addValue("customerName", filters.getCustomerName());
+        }
+
+        if (hasText(filters.getCustomerCategory())) {
+            sql.append(" AND LOWER(%s.client_category) = LOWER(:customerCategory) ".formatted(customerAlias));
+            params.addValue("customerCategory", filters.getCustomerCategory());
+        }
+
+        if (hasText(filters.getInvoiceStatus())) {
+            sql.append(" AND UPPER(%s.status_code) = UPPER(:invoiceStatus) ".formatted(statusAlias));
+            params.addValue("invoiceStatus", filters.getInvoiceStatus());
+        }
+
+        if (hasText(filters.getStatusGroup())) {
+            sql.append(" AND UPPER(%s.status_group) = UPPER(:statusGroup) ".formatted(statusAlias));
+            params.addValue("statusGroup", filters.getStatusGroup());
+        }
+
+        if (filters.getMinAmount() != null) {
+            sql.append(" AND ").append(amountExpression).append(" >= :minAmount ");
+            params.addValue("minAmount", filters.getMinAmount());
+        }
+
+        if (filters.getMaxAmount() != null) {
+            sql.append(" AND ").append(amountExpression).append(" <= :maxAmount ");
+            params.addValue("maxAmount", filters.getMaxAmount());
+        }
+    }
+
+    private void appendVendorFilters(
+            StringBuilder sql,
+            MapSqlParameterSource params,
+            String vendorAlias,
+            String statusAlias,
+            String amountExpression,
+            FinanceFilterRequest filters
+    ) {
+        if (filters == null) {
+            return;
+        }
+
+        if (hasText(filters.getVendorName())) {
+            sql.append(" AND LOWER(%s.vendor_name) = LOWER(:vendorName) ".formatted(vendorAlias));
+            params.addValue("vendorName", filters.getVendorName());
+        }
+
+        if (hasText(filters.getVendorIndustry())) {
+            sql.append(" AND LOWER(%s.industry) = LOWER(:vendorIndustry) ".formatted(vendorAlias));
+            params.addValue("vendorIndustry", filters.getVendorIndustry());
+        }
+
+        if (hasText(filters.getInvoiceStatus())) {
+            sql.append(" AND UPPER(%s.status_code) = UPPER(:invoiceStatus) ".formatted(statusAlias));
+            params.addValue("invoiceStatus", filters.getInvoiceStatus());
+        }
+
+        if (hasText(filters.getStatusGroup())) {
+            sql.append(" AND UPPER(%s.status_group) = UPPER(:statusGroup) ".formatted(statusAlias));
+            params.addValue("statusGroup", filters.getStatusGroup());
+        }
+
+        if (filters.getMinAmount() != null) {
+            sql.append(" AND ").append(amountExpression).append(" >= :minAmount ");
+            params.addValue("minAmount", filters.getMinAmount());
+        }
+
+        if (filters.getMaxAmount() != null) {
+            sql.append(" AND ").append(amountExpression).append(" <= :maxAmount ");
+            params.addValue("maxAmount", filters.getMaxAmount());
+        }
+    }
+
+    private void appendAccountFilters(
+            StringBuilder sql,
+            MapSqlParameterSource params,
+            String accountAlias,
+            String amountExpression,
+            FinanceFilterRequest filters
+    ) {
+        if (filters == null) {
+            return;
+        }
+
+        if (hasText(filters.getAccountName())) {
+            sql.append(" AND LOWER(%s.account_name) = LOWER(:accountName) ".formatted(accountAlias));
+            params.addValue("accountName", filters.getAccountName());
+        }
+
+        if (hasText(filters.getAccountType())) {
+            sql.append(" AND LOWER(%s.account_type) = LOWER(:accountType) ".formatted(accountAlias));
+            params.addValue("accountType", filters.getAccountType());
+        }
+
+        if (hasText(filters.getTransactionType())) {
+            sql.append(" AND LOWER(%s.transaction_type) = LOWER(:transactionType) ".formatted(accountAlias));
+            params.addValue("transactionType", filters.getTransactionType());
+        }
+
+        if (filters.getMinAmount() != null) {
+            sql.append(" AND ").append(amountExpression).append(" >= :minAmount ");
+            params.addValue("minAmount", filters.getMinAmount());
+        }
+
+        if (filters.getMaxAmount() != null) {
+            sql.append(" AND ").append(amountExpression).append(" <= :maxAmount ");
+            params.addValue("maxAmount", filters.getMaxAmount());
+        }
+    }
+
+    private void appendAssetFilters(
+            StringBuilder sql,
+            MapSqlParameterSource params,
+            String assetTypeAlias,
+            String amountExpression,
+            FinanceFilterRequest filters
+    ) {
+        if (filters == null) {
+            return;
+        }
+
+        if (hasText(filters.getAssetType())) {
+            sql.append(" AND LOWER(%s.asset_type) = LOWER(:assetType) ".formatted(assetTypeAlias));
+            params.addValue("assetType", filters.getAssetType());
+        }
+
+        if (filters.getMinAmount() != null) {
+            sql.append(" AND ").append(amountExpression).append(" >= :minAmount ");
+            params.addValue("minAmount", filters.getMinAmount());
+        }
+
+        if (filters.getMaxAmount() != null) {
+            sql.append(" AND ").append(amountExpression).append(" <= :maxAmount ");
+            params.addValue("maxAmount", filters.getMaxAmount());
+        }
+    }
     private BigDecimal queryForBigDecimal(String sql, Object... params) {
         BigDecimal result = jdbcTemplate.queryForObject(sql, BigDecimal.class, params);
         return result != null ? result : BigDecimal.ZERO;
@@ -32,223 +212,428 @@ public class FinanceKpiRepository {
         return result != null ? result : 0;
     }
 
-    public BigDecimal getTotalRevenue(Integer companyKey, Integer startDateKey, Integer endDateKey) {
-        String sql = """
-            SELECT COALESCE(SUM(total), 0)
-            FROM fact_invoice
-            WHERE company_key = ?
-              AND date_key BETWEEN ? AND ?
-            """;
+    public BigDecimal getTotalRevenue(
+            Integer companyKey,
+            Integer startDateKey,
+            Integer endDateKey,
+            FinanceFilterRequest filters
+    ) {
+        StringBuilder sql = new StringBuilder("""
+        SELECT COALESCE(SUM(fi.total), 0)
+        FROM fact_invoice fi
+        LEFT JOIN dim_customer c ON fi.customer_key = c.customer_key
+        LEFT JOIN dim_invoice_status s ON fi.status_key = s.status_key
+        WHERE fi.company_key = :companyKey
+          AND fi.date_key BETWEEN :startDateKey AND :endDateKey
+    """);
 
-        return queryForBigDecimal(sql, companyKey, startDateKey, endDateKey);
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("companyKey", companyKey)
+                .addValue("startDateKey", startDateKey)
+                .addValue("endDateKey", endDateKey);
+
+        appendCustomerFilters(sql, params, "c", "s", "fi.total", filters);
+
+        return queryForBigDecimalNamed(sql, params);
     }
 
-    public BigDecimal getTotalExpenses(Integer companyKey, Integer startDateKey, Integer endDateKey) {
-        String sql = """
-            SELECT COALESCE(SUM(total), 0)
-            FROM fact_bill
-            WHERE company_key = ?
-              AND date_key BETWEEN ? AND ?
-            """;
+    public BigDecimal getTotalExpenses(
+            Integer companyKey,
+            Integer startDateKey,
+            Integer endDateKey,
+            FinanceFilterRequest filters
+    ) {
+        StringBuilder sql = new StringBuilder("""
+        SELECT COALESCE(SUM(fb.total), 0)
+        FROM fact_bill fb
+        LEFT JOIN dim_vendor v ON fb.vendor_key = v.vendor_key
+        LEFT JOIN dim_invoice_status s ON fb.status_key = s.status_key
+        WHERE fb.company_key = :companyKey
+          AND fb.date_key BETWEEN :startDateKey AND :endDateKey
+    """);
 
-        return queryForBigDecimal(sql, companyKey, startDateKey, endDateKey);
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("companyKey", companyKey)
+                .addValue("startDateKey", startDateKey)
+                .addValue("endDateKey", endDateKey);
+
+        appendVendorFilters(sql, params, "v", "s", "fb.total", filters);
+
+        return queryForBigDecimalNamed(sql, params);
     }
 
-    public BigDecimal getCashBalance(Integer companyKey, Integer startDateKey, Integer endDateKey) {
-        String sql = """
-            SELECT COALESCE(SUM(f.close_balance_debit - f.close_balance_credit), 0)
-            FROM fact_chart_balance_snapshot f
-            JOIN dim_chart_account a
-                ON f.chart_account_key = a.chart_key
-            WHERE f.company_key = ?
-              AND f.date_key BETWEEN ? AND ?
-              AND a.is_current = true
-              AND LOWER(a.account_type) IN (
-                    'cash and cash equivalents',
-                    'bank balance'
-              )
-            """;
+    public BigDecimal getCashBalance(
+            Integer companyKey,
+            Integer startDateKey,
+            Integer endDateKey,
+            FinanceFilterRequest filters
+    ) {
+        StringBuilder sql = new StringBuilder("""
+        SELECT COALESCE(SUM(f.close_balance_debit - f.close_balance_credit), 0)
+        FROM fact_chart_balance_snapshot f
+        JOIN dim_chart_account a ON f.chart_account_key = a.chart_key
+        WHERE f.company_key = :companyKey
+          AND f.date_key BETWEEN :startDateKey AND :endDateKey
+          AND a.is_current = true
+          AND LOWER(a.account_type) IN (
+                'cash and cash equivalents',
+                'bank balance'
+          )
+    """);
 
-        return queryForBigDecimal(sql, companyKey, startDateKey, endDateKey);
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("companyKey", companyKey)
+                .addValue("startDateKey", startDateKey)
+                .addValue("endDateKey", endDateKey);
+
+        appendAccountFilters(
+                sql,
+                params,
+                "a",
+                "ABS(f.close_balance_debit - f.close_balance_credit)",
+                filters
+        );
+
+        return queryForBigDecimalNamed(sql, params);
     }
 
-    public BigDecimal getBankAccountBalance(Integer companyKey, Integer startDateKey, Integer endDateKey) {
-        String sql = """
-            SELECT COALESCE(SUM(f.close_balance_debit - f.close_balance_credit), 0)
-            FROM fact_chart_balance_snapshot f
-            JOIN dim_chart_account a
-                ON f.chart_account_key = a.chart_key
-            WHERE f.company_key = ?
-              AND f.date_key BETWEEN ? AND ?
-              AND a.is_current = true
-              AND LOWER(a.account_type) = 'bank balance'
-            """;
+    public BigDecimal getBankAccountBalance(
+            Integer companyKey,
+            Integer startDateKey,
+            Integer endDateKey,
+            FinanceFilterRequest filters
+    ) {
+        StringBuilder sql = new StringBuilder("""
+        SELECT COALESCE(SUM(f.close_balance_debit - f.close_balance_credit), 0)
+        FROM fact_chart_balance_snapshot f
+        JOIN dim_chart_account a ON f.chart_account_key = a.chart_key
+        WHERE f.company_key = :companyKey
+          AND f.date_key BETWEEN :startDateKey AND :endDateKey
+          AND a.is_current = true
+          AND LOWER(a.account_type) = 'bank balance'
+    """);
 
-        return queryForBigDecimal(sql, companyKey, startDateKey, endDateKey);
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("companyKey", companyKey)
+                .addValue("startDateKey", startDateKey)
+                .addValue("endDateKey", endDateKey);
+
+        appendAccountFilters(
+                sql,
+                params,
+                "a",
+                "ABS(f.close_balance_debit - f.close_balance_credit)",
+                filters
+        );
+
+        return queryForBigDecimalNamed(sql, params);
     }
 
-    public BigDecimal getTotalLiabilities(Integer companyKey, Integer startDateKey, Integer endDateKey) {
-        String sql = """
-            SELECT COALESCE(SUM(f.close_balance_credit - f.close_balance_debit), 0)
-            FROM fact_chart_balance_snapshot f
-            JOIN dim_chart_account a
-                ON f.chart_account_key = a.chart_key
-            WHERE f.company_key = ?
-              AND f.date_key BETWEEN ? AND ?
-              AND a.is_current = true
-              AND LOWER(a.account_type) IN (
-                    'current liability',
-                    'liability',
-                    'accrued salaries',
-                    'accrued',
-                    'gosi allowance - employee'
-              )
-            """;
-
-        return queryForBigDecimal(sql, companyKey, startDateKey, endDateKey);
-    }
-
-    public BigDecimal getAccountsReceivable(Integer companyKey, Integer startDateKey, Integer endDateKey) {
-        String sql = """
-            SELECT COALESCE(SUM(total - COALESCE(partial_paid_amount, 0)), 0)
-            FROM fact_invoice
-            WHERE company_key = ?
-              AND date_key BETWEEN ? AND ?
-            """;
-
-        return queryForBigDecimal(sql, companyKey, startDateKey, endDateKey);
-    }
-
-    public BigDecimal getAccountsPayable(Integer companyKey, Integer startDateKey, Integer endDateKey) {
-        String sql = """
-            SELECT COALESCE(SUM(fb.total), 0)
-            FROM fact_bill fb
-            JOIN dim_invoice_status s
-                ON fb.status_key = s.status_key
-            WHERE fb.company_key = ?
-              AND fb.date_key BETWEEN ? AND ?
-              AND s.status_code IN (
-                    'UNPAID',
-                    'WAITING',
-                    'ACCEPTED',
-                    'PARTIALLY_PAID'
-              )
-            """;
-
-        return queryForBigDecimal(sql, companyKey, startDateKey, endDateKey);
-    }
-
-    public Integer getNumberOfOpenInvoices(Integer companyKey, Integer startDateKey, Integer endDateKey) {
-        String sql = """
-            SELECT COUNT(fi.invoice_id)
-            FROM fact_invoice fi
-            JOIN dim_invoice_status s
-                ON fi.status_key = s.status_key
-            WHERE fi.company_key = ?
-              AND fi.date_key BETWEEN ? AND ?
-              AND s.status_code IN (
-                    'UNPAID',
-                    'WAITING',
-                    'ACCEPTED',
-                    'PARTIALLY_PAID'
-              )
-            """;
-
-        return queryForInteger(sql, companyKey, startDateKey, endDateKey);
-    }
-
-    public Integer getDueInvoices(Integer companyKey, Integer startDateKey, Integer endDateKey) {
-        String sql = """
-            SELECT COUNT(fi.invoice_id)
-            FROM fact_invoice fi
-            JOIN dim_invoice_status s
-                ON fi.status_key = s.status_key
-            JOIN dim_date d
-                ON fi.due_date_key = d.date_key
-            WHERE fi.company_key = ?
-              AND fi.date_key BETWEEN ? AND ?
-              AND s.status_code IN (
-                    'UNPAID',
-                    'WAITING',
-                    'ACCEPTED',
-                    'PARTIALLY_PAID'
-              )
-              AND d.full_date < CURRENT_DATE
-            """;
-
-        return queryForInteger(sql, companyKey, startDateKey, endDateKey);
-    }
-
-    public BigDecimal getAssetValue(Integer companyKey, Integer startDateKey, Integer endDateKey) {
-        String sql = """
-            SELECT COALESCE(SUM(asset_value), 0)
-            FROM fact_asset
-            WHERE company_key = ?
-              AND date_key BETWEEN ? AND ?
-            """;
-
-        return queryForBigDecimal(sql, companyKey, startDateKey, endDateKey);
-    }
-
-    public BigDecimal getDepreciationExpense(Integer companyKey, Integer startDateKey, Integer endDateKey) {
-        String sql = """
-            SELECT COALESCE(SUM(depreciation_amount), 0)
-            FROM fact_asset
-            WHERE company_key = ?
-              AND date_key BETWEEN ? AND ?
-            """;
-
-        return queryForBigDecimal(sql, companyKey, startDateKey, endDateKey);
-    }
-
-    public BigDecimal getVatCollected(Integer companyKey, Integer startDateKey, Integer endDateKey) {
-        String sql = """
-            SELECT COALESCE(SUM(fi.tax), 0)
-            FROM fact_invoice fi
-            JOIN dim_invoice_status s
-                ON fi.status_key = s.status_key
-            WHERE fi.company_key = ?
-              AND fi.date_key BETWEEN ? AND ?
-              AND s.status_code = 'PAID'
-            """;
-
-        return queryForBigDecimal(sql, companyKey, startDateKey, endDateKey);
-    }
-    public BigDecimal getCurrentLiabilities(Integer companyKey, Integer startDateKey, Integer endDateKey) {
-        String sql = """
+    public BigDecimal getTotalLiabilities(
+            Integer companyKey,
+            Integer startDateKey,
+            Integer endDateKey,
+            FinanceFilterRequest filters
+    ) {
+        StringBuilder sql = new StringBuilder("""
         SELECT COALESCE(SUM(f.close_balance_credit - f.close_balance_debit), 0)
         FROM fact_chart_balance_snapshot f
-        JOIN dim_chart_account a
-            ON f.chart_account_key = a.chart_key
-        WHERE f.company_key = ?
-          AND f.date_key BETWEEN ? AND ?
+        JOIN dim_chart_account a ON f.chart_account_key = a.chart_key
+        WHERE f.company_key = :companyKey
+          AND f.date_key BETWEEN :startDateKey AND :endDateKey
+          AND a.is_current = true
+          AND LOWER(a.account_type) IN (
+                'current liability',
+                'liability',
+                'accrued salaries',
+                'accrued',
+                'gosi allowance - employee'
+          )
+    """);
+
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("companyKey", companyKey)
+                .addValue("startDateKey", startDateKey)
+                .addValue("endDateKey", endDateKey);
+
+        appendAccountFilters(
+                sql,
+                params,
+                "a",
+                "ABS(f.close_balance_credit - f.close_balance_debit)",
+                filters
+        );
+
+        return queryForBigDecimalNamed(sql, params);
+    }
+
+    public BigDecimal getAccountsReceivable(
+            Integer companyKey,
+            Integer startDateKey,
+            Integer endDateKey,
+            FinanceFilterRequest filters
+    ) {
+        StringBuilder sql = new StringBuilder("""
+        SELECT COALESCE(SUM(fi.total - COALESCE(fi.partial_paid_amount, 0)), 0)
+        FROM fact_invoice fi
+        LEFT JOIN dim_customer c ON fi.customer_key = c.customer_key
+        LEFT JOIN dim_invoice_status s ON fi.status_key = s.status_key
+        WHERE fi.company_key = :companyKey
+          AND fi.date_key BETWEEN :startDateKey AND :endDateKey
+    """);
+
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("companyKey", companyKey)
+                .addValue("startDateKey", startDateKey)
+                .addValue("endDateKey", endDateKey);
+
+        appendCustomerFilters(
+                sql,
+                params,
+                "c",
+                "s",
+                "COALESCE(fi.total - COALESCE(fi.partial_paid_amount, 0), 0)",
+                filters
+        );
+
+        return queryForBigDecimalNamed(sql, params);
+    }
+
+    public BigDecimal getAccountsPayable(
+            Integer companyKey,
+            Integer startDateKey,
+            Integer endDateKey,
+            FinanceFilterRequest filters
+    ) {
+        StringBuilder sql = new StringBuilder("""
+        SELECT COALESCE(SUM(fb.total), 0)
+        FROM fact_bill fb
+        JOIN dim_invoice_status s ON fb.status_key = s.status_key
+        LEFT JOIN dim_vendor v ON fb.vendor_key = v.vendor_key
+        WHERE fb.company_key = :companyKey
+          AND fb.date_key BETWEEN :startDateKey AND :endDateKey
+          AND s.status_code IN (
+                'UNPAID',
+                'WAITING',
+                'ACCEPTED',
+                'PARTIALLY_PAID'
+          )
+    """);
+
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("companyKey", companyKey)
+                .addValue("startDateKey", startDateKey)
+                .addValue("endDateKey", endDateKey);
+
+        appendVendorFilters(sql, params, "v", "s", "fb.total", filters);
+
+        return queryForBigDecimalNamed(sql, params);
+    }
+
+    public Integer getNumberOfOpenInvoices(
+            Integer companyKey,
+            Integer startDateKey,
+            Integer endDateKey,
+            FinanceFilterRequest filters
+    ) {
+        StringBuilder sql = new StringBuilder("""
+        SELECT COUNT(fi.invoice_id)
+        FROM fact_invoice fi
+        JOIN dim_invoice_status s ON fi.status_key = s.status_key
+        LEFT JOIN dim_customer c ON fi.customer_key = c.customer_key
+        WHERE fi.company_key = :companyKey
+          AND fi.date_key BETWEEN :startDateKey AND :endDateKey
+          AND s.status_code IN (
+                'UNPAID',
+                'WAITING',
+                'ACCEPTED',
+                'PARTIALLY_PAID'
+          )
+    """);
+
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("companyKey", companyKey)
+                .addValue("startDateKey", startDateKey)
+                .addValue("endDateKey", endDateKey);
+
+        appendCustomerFilters(sql, params, "c", "s", "fi.total", filters);
+
+        return queryForIntegerNamed(sql, params);
+    }
+
+    public Integer getDueInvoices(
+            Integer companyKey,
+            Integer startDateKey,
+            Integer endDateKey,
+            FinanceFilterRequest filters
+    ) {
+        StringBuilder sql = new StringBuilder("""
+        SELECT COUNT(fi.invoice_id)
+        FROM fact_invoice fi
+        JOIN dim_invoice_status s ON fi.status_key = s.status_key
+        JOIN dim_date d ON fi.due_date_key = d.date_key
+        LEFT JOIN dim_customer c ON fi.customer_key = c.customer_key
+        WHERE fi.company_key = :companyKey
+          AND fi.date_key BETWEEN :startDateKey AND :endDateKey
+          AND s.status_code IN (
+                'UNPAID',
+                'WAITING',
+                'ACCEPTED',
+                'PARTIALLY_PAID'
+          )
+          AND d.full_date < CURRENT_DATE
+    """);
+
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("companyKey", companyKey)
+                .addValue("startDateKey", startDateKey)
+                .addValue("endDateKey", endDateKey);
+
+        appendCustomerFilters(sql, params, "c", "s", "fi.total", filters);
+
+        return queryForIntegerNamed(sql, params);
+    }
+
+    public BigDecimal getAssetValue(
+            Integer companyKey,
+            Integer startDateKey,
+            Integer endDateKey,
+            FinanceFilterRequest filters
+    ) {
+        StringBuilder sql = new StringBuilder("""
+        SELECT COALESCE(SUM(f.asset_value), 0)
+        FROM fact_asset f
+        LEFT JOIN dim_asset_type t ON f.asset_type_key = t.asset_type_key
+        WHERE f.company_key = :companyKey
+          AND f.date_key BETWEEN :startDateKey AND :endDateKey
+    """);
+
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("companyKey", companyKey)
+                .addValue("startDateKey", startDateKey)
+                .addValue("endDateKey", endDateKey);
+
+        appendAssetFilters(sql, params, "t", "f.asset_value", filters);
+
+        return queryForBigDecimalNamed(sql, params);
+    }
+
+    public BigDecimal getDepreciationExpense(
+            Integer companyKey,
+            Integer startDateKey,
+            Integer endDateKey,
+            FinanceFilterRequest filters
+    ) {
+        StringBuilder sql = new StringBuilder("""
+        SELECT COALESCE(SUM(f.depreciation_amount), 0)
+        FROM fact_asset f
+        LEFT JOIN dim_asset_type t ON f.asset_type_key = t.asset_type_key
+        WHERE f.company_key = :companyKey
+          AND f.date_key BETWEEN :startDateKey AND :endDateKey
+    """);
+
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("companyKey", companyKey)
+                .addValue("startDateKey", startDateKey)
+                .addValue("endDateKey", endDateKey);
+
+        appendAssetFilters(sql, params, "t", "f.depreciation_amount", filters);
+
+        return queryForBigDecimalNamed(sql, params);
+    }
+
+    public BigDecimal getVatCollected(
+            Integer companyKey,
+            Integer startDateKey,
+            Integer endDateKey,
+            FinanceFilterRequest filters
+    ) {
+        StringBuilder sql = new StringBuilder("""
+        SELECT COALESCE(SUM(fi.tax), 0)
+        FROM fact_invoice fi
+        JOIN dim_invoice_status s ON fi.status_key = s.status_key
+        LEFT JOIN dim_customer c ON fi.customer_key = c.customer_key
+        WHERE fi.company_key = :companyKey
+          AND fi.date_key BETWEEN :startDateKey AND :endDateKey
+          AND s.status_code = 'PAID'
+    """);
+
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("companyKey", companyKey)
+                .addValue("startDateKey", startDateKey)
+                .addValue("endDateKey", endDateKey);
+
+        appendCustomerFilters(sql, params, "c", "s", "fi.tax", filters);
+
+        return queryForBigDecimalNamed(sql, params);
+    }
+    public BigDecimal getCurrentLiabilities(
+            Integer companyKey,
+            Integer startDateKey,
+            Integer endDateKey,
+            FinanceFilterRequest filters
+    ) {
+        StringBuilder sql = new StringBuilder("""
+        SELECT COALESCE(SUM(f.close_balance_credit - f.close_balance_debit), 0)
+        FROM fact_chart_balance_snapshot f
+        JOIN dim_chart_account a ON f.chart_account_key = a.chart_key
+        WHERE f.company_key = :companyKey
+          AND f.date_key BETWEEN :startDateKey AND :endDateKey
           AND a.is_current = true
           AND LOWER(a.account_type) IN (
                 'current liability',
                 'accrued salaries',
                 'accrued'
           )
-        """;
+    """);
 
-        return queryForBigDecimal(sql, companyKey, startDateKey, endDateKey);
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("companyKey", companyKey)
+                .addValue("startDateKey", startDateKey)
+                .addValue("endDateKey", endDateKey);
+
+        appendAccountFilters(
+                sql,
+                params,
+                "a",
+                "ABS(f.close_balance_credit - f.close_balance_debit)",
+                filters
+        );
+
+        return queryForBigDecimalNamed(sql, params);
     }
-    public BigDecimal getVatFromBills(Integer companyKey, Integer startDateKey, Integer endDateKey) {
-        String sql = """
-            SELECT COALESCE(SUM(tax), 0)
-            FROM fact_bill
-            WHERE company_key = ?
-              AND date_key BETWEEN ? AND ?
-            """;
+    public BigDecimal getVatFromBills(
+            Integer companyKey,
+            Integer startDateKey,
+            Integer endDateKey,
+            FinanceFilterRequest filters
+    ) {
+        StringBuilder sql = new StringBuilder("""
+        SELECT COALESCE(SUM(fb.tax), 0)
+        FROM fact_bill fb
+        LEFT JOIN dim_vendor v ON fb.vendor_key = v.vendor_key
+        LEFT JOIN dim_invoice_status s ON fb.status_key = s.status_key
+        WHERE fb.company_key = :companyKey
+          AND fb.date_key BETWEEN :startDateKey AND :endDateKey
+    """);
 
-        return queryForBigDecimal(sql, companyKey, startDateKey, endDateKey);
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("companyKey", companyKey)
+                .addValue("startDateKey", startDateKey)
+                .addValue("endDateKey", endDateKey);
+
+        appendVendorFilters(sql, params, "v", "s", "fb.tax", filters);
+
+        return queryForBigDecimalNamed(sql, params);
     }
 
     public List<FinanceRevenueProfitTrendItem> getRevenueProfitTrend(
             Integer companyKey,
             Integer startDateKey,
-            Integer endDateKey
+            Integer endDateKey,
+            FinanceFilterRequest filters
     ) {
-        String sql = """
+        StringBuilder sql = new StringBuilder("""
         WITH revenue_by_month AS (
             SELECT
                 d.year,
@@ -258,8 +643,22 @@ public class FinanceKpiRepository {
             FROM dim_date d
             LEFT JOIN fact_invoice fi
                 ON fi.date_key = d.date_key
-               AND fi.company_key = ?
-            WHERE d.date_key BETWEEN ? AND ?
+               AND fi.company_key = :companyKey
+            LEFT JOIN dim_customer c
+                ON fi.customer_key = c.customer_key
+            LEFT JOIN dim_invoice_status si
+                ON fi.status_key = si.status_key
+            WHERE d.date_key BETWEEN :startDateKey AND :endDateKey
+        """);
+
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("companyKey", companyKey)
+                .addValue("startDateKey", startDateKey)
+                .addValue("endDateKey", endDateKey);
+
+        appendCustomerFilters(sql, params, "c", "si", "fi.total", filters);
+
+        sql.append("""
             GROUP BY d.year, d.month
         ),
         expenses_by_month AS (
@@ -270,8 +669,17 @@ public class FinanceKpiRepository {
             FROM dim_date d
             LEFT JOIN fact_bill fb
                 ON fb.date_key = d.date_key
-               AND fb.company_key = ?
-            WHERE d.date_key BETWEEN ? AND ?
+               AND fb.company_key = :companyKey
+            LEFT JOIN dim_vendor v
+                ON fb.vendor_key = v.vendor_key
+            LEFT JOIN dim_invoice_status sb
+                ON fb.status_key = sb.status_key
+            WHERE d.date_key BETWEEN :startDateKey AND :endDateKey
+        """);
+
+        appendVendorFilters(sql, params, "v", "sb", "fb.total", filters);
+
+        sql.append("""
             GROUP BY d.year, d.month
         )
         SELECT
@@ -283,29 +691,25 @@ public class FinanceKpiRepository {
             ON r.year = e.year
            AND r.month = e.month
         ORDER BY r.year, r.month
-        """;
+    """);
 
-        return jdbcTemplate.query(
-                sql,
+        return namedParameterJdbcTemplate.query(
+                sql.toString(),
+                params,
                 (rs, rowNum) -> new FinanceRevenueProfitTrendItem(
                         rs.getString("period"),
                         rs.getBigDecimal("revenue"),
                         rs.getBigDecimal("profit")
-                ),
-                companyKey,
-                startDateKey,
-                endDateKey,
-                companyKey,
-                startDateKey,
-                endDateKey
+                )
         );
     }
     public List<FinanceCashFlowTrendItem> getCashFlowTrend(
             Integer companyKey,
             Integer startDateKey,
-            Integer endDateKey
+            Integer endDateKey,
+            FinanceFilterRequest filters
     ) {
-        String sql = """
+        StringBuilder sql = new StringBuilder("""
         SELECT
             TO_CHAR(d.full_date, 'DD Mon') AS period,
             COALESCE(SUM(f.debit), 0) AS inflow,
@@ -316,36 +720,51 @@ public class FinanceKpiRepository {
             ON f.date_key = d.date_key
         JOIN dim_chart_account a
             ON f.chart_account_key = a.chart_key
-        WHERE f.company_key = ?
-          AND f.date_key BETWEEN ? AND ?
+        WHERE f.company_key = :companyKey
+          AND f.date_key BETWEEN :startDateKey AND :endDateKey
           AND a.is_current = true
           AND LOWER(a.account_type) IN (
                 'cash and cash equivalents',
                 'bank balance'
           )
+    """);
+
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("companyKey", companyKey)
+                .addValue("startDateKey", startDateKey)
+                .addValue("endDateKey", endDateKey);
+
+        appendAccountFilters(
+                sql,
+                params,
+                "a",
+                "ABS(f.debit - f.credit)",
+                filters
+        );
+
+        sql.append("""
         GROUP BY d.full_date
         ORDER BY d.full_date
-        """;
+    """);
 
-        return jdbcTemplate.query(
-                sql,
+        return namedParameterJdbcTemplate.query(
+                sql.toString(),
+                params,
                 (rs, rowNum) -> new FinanceCashFlowTrendItem(
                         rs.getString("period"),
                         rs.getBigDecimal("inflow"),
                         rs.getBigDecimal("outflow"),
                         rs.getBigDecimal("net_cash_flow")
-                ),
-                companyKey,
-                startDateKey,
-                endDateKey
+                )
         );
     }
     public List<FinanceOutstandingInvoiceItem> getTopOutstandingInvoices(
             Integer companyKey,
             Integer startDateKey,
-            Integer endDateKey
+            Integer endDateKey,
+            FinanceFilterRequest filters
     ) {
-        String sql = """
+        StringBuilder sql = new StringBuilder("""
         SELECT
             COALESCE(c.organization_name, c.contact_name, 'Unknown Customer') AS client,
             COALESCE(CAST(fi.invoicenumber AS TEXT), CAST(fi.invoice_id AS TEXT)) AS reference,
@@ -363,8 +782,8 @@ public class FinanceKpiRepository {
             ON fi.status_key = s.status_key
         LEFT JOIN dim_date d
             ON fi.due_date_key = d.date_key
-        WHERE fi.company_key = ?
-          AND fi.date_key BETWEEN ? AND ?
+        WHERE fi.company_key = :companyKey
+          AND fi.date_key BETWEEN :startDateKey AND :endDateKey
           AND s.status_code IN (
                 'UNPAID',
                 'WAITING',
@@ -372,39 +791,92 @@ public class FinanceKpiRepository {
                 'PARTIALLY_PAID'
           )
           AND COALESCE(fi.total - COALESCE(fi.partial_paid_amount, 0), 0) > 0
+        """);
+
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("companyKey", companyKey)
+                .addValue("startDateKey", startDateKey)
+                .addValue("endDateKey", endDateKey);
+
+        if (filters != null) {
+            if (filters.getCustomerName() != null && !filters.getCustomerName().isBlank()) {
+                sql.append("""
+                AND LOWER(COALESCE(c.organization_name, c.contact_name, ''))
+                    LIKE LOWER(CONCAT('%', :clientVendor, '%'))
+                """);
+                params.addValue("clientVendor", filters.getCustomerName());
+            }
+
+            if (filters.getInvoiceStatus() != null && !filters.getInvoiceStatus().isBlank()) {
+                if ("Overdue".equalsIgnoreCase(filters.getInvoiceStatus())) {
+                    sql.append(" AND d.full_date < CURRENT_DATE ");
+                } else if ("Due Soon".equalsIgnoreCase(filters.getInvoiceStatus())) {
+                    sql.append(" AND d.full_date BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '7 days' ");
+                } else {
+                    sql.append(" AND UPPER(s.status_code) = UPPER(:invoiceStatus) ");
+                    params.addValue("invoiceStatus", filters.getInvoiceStatus());
+                }
+            }
+
+            if (filters.getMinAmount() != null) {
+                sql.append("""
+                AND COALESCE(fi.total - COALESCE(fi.partial_paid_amount, 0), 0) >= :minAmount
+                """);
+                params.addValue("minAmount", filters.getMinAmount());
+            }
+
+            if (filters.getMaxAmount() != null) {
+                sql.append("""
+                AND COALESCE(fi.total - COALESCE(fi.partial_paid_amount, 0), 0) <= :maxAmount
+                """);
+                params.addValue("maxAmount", filters.getMaxAmount());
+            }
+        }
+
+        sql.append("""
         ORDER BY amount DESC
         LIMIT 5
-        """;
+        """);
 
-        return jdbcTemplate.query(
-                sql,
+        return namedParameterJdbcTemplate.query(
+                sql.toString(),
+                params,
                 (rs, rowNum) -> new FinanceOutstandingInvoiceItem(
                         rs.getString("client"),
                         rs.getString("reference"),
                         rs.getBigDecimal("amount"),
                         rs.getDate("due_date") != null ? rs.getDate("due_date").toLocalDate() : null,
                         rs.getString("status")
-                ),
-                companyKey,
-                startDateKey,
-                endDateKey
+                )
         );
     }
     public FinanceLiabilityAssetItem getLiabilityVsAssets(
             Integer companyKey,
             Integer startDateKey,
-            Integer endDateKey
+            Integer endDateKey,
+            FinanceFilterRequest filters
     ) {
-        String sql = """
-        
-                WITH assets AS (
+        StringBuilder sql = new StringBuilder("""
+        WITH assets AS (
             SELECT
                 0 AS current_assets,
                 COALESCE(SUM(f.asset_value), 0) AS fixed_assets,
                 COALESCE(SUM(f.asset_value), 0) AS total_assets
             FROM fact_asset f
-            WHERE f.company_key = ?
-              AND f.date_key <= ?
+            LEFT JOIN dim_asset_type t
+                ON f.asset_type_key = t.asset_type_key
+            WHERE f.company_key = :companyKey
+              AND f.date_key <= :endDateKey
+    """);
+
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("companyKey", companyKey)
+                .addValue("startDateKey", startDateKey)
+                .addValue("endDateKey", endDateKey);
+
+        appendAssetFilters(sql, params, "t", "f.asset_value", filters);
+
+        sql.append("""
         ),
         liabilities AS (
             SELECT
@@ -447,9 +919,20 @@ public class FinanceKpiRepository {
             FROM fact_chart_balance_snapshot cb
             JOIN dim_chart_account a
                 ON cb.chart_account_key = a.chart_key
-            WHERE cb.company_key = ?
-              AND cb.date_key BETWEEN ? AND ?
+            WHERE cb.company_key = :companyKey
+              AND cb.date_key BETWEEN :startDateKey AND :endDateKey
               AND a.is_current = true
+    """);
+
+        appendAccountFilters(
+                sql,
+                params,
+                "a",
+                "ABS(cb.close_balance_credit - cb.close_balance_debit)",
+                filters
+        );
+
+        sql.append("""
         )
         SELECT
             assets.current_assets,
@@ -459,10 +942,11 @@ public class FinanceKpiRepository {
             liabilities.long_term_liabilities,
             liabilities.total_liabilities
         FROM assets, liabilities
-        """;
+    """);
 
-        return jdbcTemplate.queryForObject(
-                sql,
+        return namedParameterJdbcTemplate.queryForObject(
+                sql.toString(),
+                params,
                 (rs, rowNum) -> new FinanceLiabilityAssetItem(
                         rs.getBigDecimal("current_assets"),
                         rs.getBigDecimal("fixed_assets"),
@@ -470,52 +954,102 @@ public class FinanceKpiRepository {
                         rs.getBigDecimal("current_liabilities"),
                         rs.getBigDecimal("long_term_liabilities"),
                         rs.getBigDecimal("total_liabilities")
-                ),
-                companyKey,
-                endDateKey,
-                companyKey,
-                startDateKey,
-                endDateKey
+                )
         );
     }
     public List<FinanceAssetDistributionItem> getAssetDistribution(
             Integer companyKey,
-            Integer endDateKey
+            Integer endDateKey,
+            FinanceFilterRequest filters
     ) {
-        String sql = """
+        StringBuilder sql = new StringBuilder("""
         SELECT
             COALESCE(t.asset_type, 'Unknown Asset Type') AS asset_type,
             COALESCE(SUM(f.asset_value), 0) AS asset_value
         FROM fact_asset f
         LEFT JOIN dim_asset_type t
             ON f.asset_type_key = t.asset_type_key
-        WHERE f.company_key = ?
-          AND f.date_key <= ?
-        GROUP BY COALESCE(t.asset_type, 'Unknown Asset Type')
-        ORDER BY asset_value DESC
-        """;
+        WHERE f.company_key = :companyKey
+          AND f.date_key <= :endDateKey
+        """);
 
-        return jdbcTemplate.query(
-                sql,
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("companyKey", companyKey)
+                .addValue("endDateKey", endDateKey);
+
+        if (filters != null) {
+            if (filters.getAssetType() != null && !filters.getAssetType().isBlank()) {
+                sql.append("""
+                AND LOWER(COALESCE(t.asset_type, ''))
+                    = LOWER(:assetType)
+                """);
+                params.addValue("assetType", filters.getAssetType());
+            }
+        }
+
+        sql.append("""
+        GROUP BY COALESCE(t.asset_type, 'Unknown Asset Type')
+        HAVING 1 = 1
+        """);
+
+        if (filters != null) {
+            if (filters.getMinAmount() != null) {
+                sql.append(" AND COALESCE(SUM(f.asset_value), 0) >= :minAmount ");
+                params.addValue("minAmount", filters.getMinAmount());
+            }
+
+            if (filters.getMaxAmount() != null) {
+                sql.append(" AND COALESCE(SUM(f.asset_value), 0) <= :maxAmount ");
+                params.addValue("maxAmount", filters.getMaxAmount());
+            }
+        }
+
+        sql.append(" ORDER BY asset_value DESC ");
+
+        return namedParameterJdbcTemplate.query(
+                sql.toString(),
+                params,
                 (rs, rowNum) -> new FinanceAssetDistributionItem(
                         rs.getString("asset_type"),
                         rs.getBigDecimal("asset_value")
-                ),
-                companyKey,
-                endDateKey
+                )
         );
     }
 
     public FinanceComplianceSummaryResponse getComplianceSummary(
             Integer companyKey,
             Integer startDateKey,
-            Integer endDateKey
+            Integer endDateKey,
+            FinanceFilterRequest filters
     ) {
-        BigDecimal vatCollected = getVatCollected(companyKey, startDateKey, endDateKey);
-        BigDecimal vatPayable = getVatFromBills(companyKey, startDateKey, endDateKey);
+        BigDecimal vatCollected = getVatCollected(
+                companyKey,
+                startDateKey,
+                endDateKey,
+                filters
+        );
 
-        BigDecimal totalRevenue = getTotalRevenue(companyKey, startDateKey, endDateKey);
-        BigDecimal totalExpenses = getTotalExpenses(companyKey, startDateKey, endDateKey);
+        BigDecimal vatPayable = getVatFromBills(
+                companyKey,
+                startDateKey,
+                endDateKey,
+                filters
+        );
+
+        BigDecimal totalRevenue = getTotalRevenue(
+                companyKey,
+                startDateKey,
+                endDateKey,
+                filters
+        );
+
+        BigDecimal totalExpenses = getTotalExpenses(
+                companyKey,
+                startDateKey,
+                endDateKey,
+                filters
+        );
+
         BigDecimal netProfit = totalRevenue.subtract(totalExpenses);
 
         BigDecimal estimatedTax = vatPayable;
