@@ -1,16 +1,18 @@
 package com.rest_erp.backend_bi_rest_erp.repository.finance;
-
+import com.rest_erp.backend_bi_rest_erp.dto.finance.FinanceAssetDistributionItem;
+import com.rest_erp.backend_bi_rest_erp.dto.finance.FinanceCashFlowTrendItem;
+import com.rest_erp.backend_bi_rest_erp.dto.finance.FinanceComplianceSummaryResponse;
+import com.rest_erp.backend_bi_rest_erp.dto.finance.FinanceLiabilityAssetItem;
+import com.rest_erp.backend_bi_rest_erp.dto.finance.FinanceOutstandingInvoiceItem;
+import com.rest_erp.backend_bi_rest_erp.dto.finance.FinanceRevenueProfitTrendItem;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
-import com.rest_erp.backend_bi_rest_erp.dto.finance.FinanceRevenueProfitTrendItem;
-import com.rest_erp.backend_bi_rest_erp.dto.finance.FinanceCashFlowTrendItem;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
-import com.rest_erp.backend_bi_rest_erp.dto.finance.FinanceOutstandingInvoiceItem;
-import com.rest_erp.backend_bi_rest_erp.dto.finance.FinanceLiabilityAssetItem;
-import com.rest_erp.backend_bi_rest_erp.dto.finance.FinanceAssetDistributionItem;
-import java.sql.Date;
+import java.util.Locale;
 @Repository
 public class FinanceKpiRepository {
 
@@ -501,6 +503,82 @@ public class FinanceKpiRepository {
                 ),
                 companyKey,
                 endDateKey
+        );
+    }
+
+    public FinanceComplianceSummaryResponse getComplianceSummary(
+            Integer companyKey,
+            Integer startDateKey,
+            Integer endDateKey
+    ) {
+        BigDecimal vatCollected = getVatCollected(companyKey, startDateKey, endDateKey);
+        BigDecimal vatPayable = getVatFromBills(companyKey, startDateKey, endDateKey);
+
+        BigDecimal totalRevenue = getTotalRevenue(companyKey, startDateKey, endDateKey);
+        BigDecimal totalExpenses = getTotalExpenses(companyKey, startDateKey, endDateKey);
+        BigDecimal netProfit = totalRevenue.subtract(totalExpenses);
+
+        BigDecimal estimatedTax = vatPayable;
+
+        if (netProfit.compareTo(BigDecimal.ZERO) > 0) {
+            BigDecimal profitTaxEstimate = netProfit.multiply(new BigDecimal("0.05"));
+            estimatedTax = estimatedTax.add(profitTaxEstimate);
+        }
+
+        String complianceStatus = vatPayable.compareTo(BigDecimal.ZERO) > 0
+                ? "Pending Review"
+                : "Full Compliance";
+
+        String complianceStatusIcon = vatPayable.compareTo(BigDecimal.ZERO) > 0
+                ? "warning"
+                : "verified_user";
+
+        return FinanceComplianceSummaryResponse.builder()
+                .complianceStatus(complianceStatus)
+                .complianceStatusIcon(complianceStatusIcon)
+                .nextFilingDates(buildNextFilingDates())
+                .taxPayments(List.of(
+                        FinanceComplianceSummaryResponse.TaxPaymentItem.builder()
+                                .code("VAT")
+                                .label("VAT Collected")
+                                .amount(vatCollected)
+                                .build(),
+                        FinanceComplianceSummaryResponse.TaxPaymentItem.builder()
+                                .code("PAY")
+                                .label("VAT Payable")
+                                .amount(vatPayable)
+                                .build(),
+                        FinanceComplianceSummaryResponse.TaxPaymentItem.builder()
+                                .code("EST")
+                                .label("Estimated Tax")
+                                .amount(estimatedTax)
+                                .build()
+                ))
+                .build();
+    }
+
+    private List<FinanceComplianceSummaryResponse.FilingDateItem> buildNextFilingDates() {
+        LocalDate today = LocalDate.now();
+
+        LocalDate quarterlyVatReturn = today
+                .plusMonths(3)
+                .withDayOfMonth(15);
+
+        LocalDate incomeTaxProvisional = today
+                .plusMonths(2)
+                .withDayOfMonth(28);
+
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MMM dd, yyyy", Locale.ENGLISH);
+
+        return List.of(
+                FinanceComplianceSummaryResponse.FilingDateItem.builder()
+                        .label("Quarterly VAT Return")
+                        .date(quarterlyVatReturn.format(formatter))
+                        .build(),
+                FinanceComplianceSummaryResponse.FilingDateItem.builder()
+                        .label("Income Tax Provisional")
+                        .date(incomeTaxProvisional.format(formatter))
+                        .build()
         );
     }
 }

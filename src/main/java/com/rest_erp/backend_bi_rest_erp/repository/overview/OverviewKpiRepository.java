@@ -39,11 +39,11 @@ public class OverviewKpiRepository {
 
     public Integer getTotalEmployees(Integer companyKey) {
         String sql = """
-            SELECT COUNT(*)
+            SELECT COUNT(DISTINCT user_id)
             FROM dim_user
             WHERE company_key = ?
               AND is_current = true
-              AND COALESCE(active, true) = true
+              AND type = 'EMPLOYEE'
             """;
 
         return queryForInteger(sql, companyKey);

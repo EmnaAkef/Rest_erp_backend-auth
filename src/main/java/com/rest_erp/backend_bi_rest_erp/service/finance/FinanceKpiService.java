@@ -1,6 +1,6 @@
 package com.rest_erp.backend_bi_rest_erp.service.finance;
 
-import com.rest_erp.backend_bi_rest_erp.dto.finance.FinanceKpiResponse;
+import com.rest_erp.backend_bi_rest_erp.dto.finance.*;
 import com.rest_erp.backend_bi_rest_erp.repository.finance.FinanceKpiRepository;
 import com.rest_erp.backend_bi_rest_erp.tenant.TenantContext;
 import lombok.RequiredArgsConstructor;
@@ -9,11 +9,6 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
-import com.rest_erp.backend_bi_rest_erp.dto.finance.FinanceRevenueProfitTrendItem;
-import com.rest_erp.backend_bi_rest_erp.dto.finance.FinanceCashFlowTrendItem;
-import com.rest_erp.backend_bi_rest_erp.dto.finance.FinanceOutstandingInvoiceItem;
-import com.rest_erp.backend_bi_rest_erp.dto.finance.FinanceLiabilityAssetItem;
-import com.rest_erp.backend_bi_rest_erp.dto.finance.FinanceAssetDistributionItem;
 import java.util.List;
 import com.rest_erp.backend_bi_rest_erp.repository.CommonRepository;
 @Service
@@ -158,5 +153,17 @@ public class FinanceKpiService {
         Integer endDateKey = toDateKey(endDate);
 
         return financeKpiRepository.getAssetDistribution(companyKey, endDateKey);
+    }
+    public FinanceComplianceSummaryResponse getComplianceSummary(LocalDate startDate, LocalDate endDate) {
+        Integer companyKey = TenantContext.getCompanyKey();
+
+        Integer startDateKey = toDateKey(startDate);
+        Integer endDateKey = toDateKey(endDate);
+
+        return financeKpiRepository.getComplianceSummary(
+                companyKey,
+                startDateKey,
+                endDateKey
+        );
     }
 }
