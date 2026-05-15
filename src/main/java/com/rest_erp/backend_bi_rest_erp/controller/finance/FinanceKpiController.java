@@ -315,4 +315,8 @@ public class FinanceKpiController {
                 financeKpiService.getComplianceSummary(startDate, endDate, filters)
         );
     }
+    @GetMapping("/filter-options")
+    public ResponseEntity<FinanceFilterOptionsResponse> getFinanceFilterOptions() {
+        return ResponseEntity.ok(financeKpiService.getFinanceFilterOptions());
+    }
 }

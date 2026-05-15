@@ -1115,4 +1115,58 @@ public class FinanceKpiRepository {
                         .build()
         );
     }
+    public FinanceFilterOptionsResponse getFinanceFilterOptions(Integer companyKey) {
+
+        List<String> customerNames = jdbcTemplate.queryForList("""
+        SELECT DISTINCT COALESCE(contact_name, organization_name) AS name
+        FROM dim_customer
+        WHERE company_key = ?
+          AND is_current = true
+          AND COALESCE(contact_name, organization_name) IS NOT NULL
+        ORDER BY name
+    """, String.class, companyKey);
+
+        List<String> customerCategories = jdbcTemplate.queryForList("""
+        SELECT DISTINCT client_category
+        FROM dim_customer
+        WHERE company_key = ?
+          AND is_current = true
+          AND client_category IS NOT NULL
+        ORDER BY client_category
+    """, String.class, companyKey);
+
+        List<String> vendorNames = jdbcTemplate.queryForList("""
+        SELECT DISTINCT vendor_name
+        FROM dim_vendor
+        WHERE company_key = ?
+          AND is_current = true
+          AND vendor_name IS NOT NULL
+        ORDER BY vendor_name
+    """, String.class, companyKey);
+
+        List<String> vendorIndustries = jdbcTemplate.queryForList("""
+        SELECT DISTINCT industry
+        FROM dim_vendor
+        WHERE company_key = ?
+          AND is_current = true
+          AND industry IS NOT NULL
+        ORDER BY industry
+    """, String.class, companyKey);
+
+        List<String> accountNames = jdbcTemplate.queryForList("""
+        SELECT DISTINCT account_name
+        FROM dim_chart_account
+        WHERE company_key = ?
+          AND account_name IS NOT NULL
+        ORDER BY account_name
+    """, String.class, companyKey);
+
+        return new FinanceFilterOptionsResponse(
+                customerNames,
+                customerCategories,
+                vendorNames,
+                vendorIndustries,
+                accountNames
+        );
+    }
 }

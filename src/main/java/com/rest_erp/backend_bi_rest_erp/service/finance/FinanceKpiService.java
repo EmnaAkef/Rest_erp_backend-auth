@@ -14,6 +14,8 @@ import java.time.LocalDate;
 import java.util.List;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+
+import com.rest_erp.backend_bi_rest_erp.dto.finance.FinanceFilterOptionsResponse;
 @Service
 @RequiredArgsConstructor
 public class FinanceKpiService {
@@ -298,5 +300,11 @@ public class FinanceKpiService {
         return date.getYear() * 10000
                 + date.getMonthValue() * 100
                 + date.getDayOfMonth();
+    }
+
+    public FinanceFilterOptionsResponse getFinanceFilterOptions() {
+        Integer companyKey = TenantContext.getCompanyKey();
+
+        return financeKpiRepository.getFinanceFilterOptions(companyKey);
     }
 }
