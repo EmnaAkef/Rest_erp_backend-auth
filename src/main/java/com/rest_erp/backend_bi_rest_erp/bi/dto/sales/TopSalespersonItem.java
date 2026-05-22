@@ -1,0 +1,20 @@
+package com.rest_erp.backend_bi_rest_erp.bi.dto.sales;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.math.BigDecimal;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class TopSalespersonItem {
+
+    private String currency;
+
+    private String name;
+    private BigDecimal amount;
+}

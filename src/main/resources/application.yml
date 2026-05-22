@@ -1,6 +1,12 @@
 server:
   port: 8080
 
+keycloak:
+  server-url: http://localhost:8090
+  realm: rest-erp
+  client-id: rest-erp-backend
+  client-secret: Xv1X7Kd9o6djRfqceqW3EtH9Hb1fTrD8
+
 spring:
   application:
     name: Backend_REST_ERP
@@ -18,3 +24,4 @@ spring:
     properties:
       hibernate:
         format_sql: true
+

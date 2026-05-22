@@ -1,0 +1,29 @@
+package com.rest_erp.backend_bi_rest_erp.bi.dto.overview;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.math.BigDecimal;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class OverviewExecutiveLedgerItem {
+
+    private String period;
+
+    private BigDecimal revenue;
+    private BigDecimal expenses;
+    private BigDecimal netProfit;
+
+    private Long dealsWon;
+    private BigDecimal pipeline;
+
+    private Long employees;
+    private BigDecimal presenceRate;
+
+    private Long customers;
+}
