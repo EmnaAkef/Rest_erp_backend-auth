@@ -1,6 +1,7 @@
 package com.rest_erp.backend_bi_rest_erp.auth.controller;
 
 
+import com.rest_erp.backend_bi_rest_erp.auth.dto.ForgotPasswordRequest;
 import com.rest_erp.backend_bi_rest_erp.auth.service.AuthService;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -48,5 +49,11 @@ public class AuthController {
         );
 
         return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<String> forgotPassword(@RequestBody ForgotPasswordRequest request) {
+        String message = authService.forgotPassword(request.getEmail());
+        return ResponseEntity.ok(message);
     }
 }

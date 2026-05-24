@@ -158,4 +158,34 @@ public class AuthService {
 
         return response;
     }
+
+    public String forgotPassword(String email) {
+        if (email == null || email.trim().isEmpty()) {
+            throw new RuntimeException("Email is required");
+        }
+
+        String normalizedEmail = email.trim().toLowerCase();
+
+        AppUserCompany userCompany = appUserCompanyRepository
+                .findByEmailIgnoreCase(normalizedEmail)
+                .orElseThrow(() -> new RuntimeException("No approved account found with this email"));
+
+        if (Boolean.FALSE.equals(userCompany.getActive())) {
+            throw new RuntimeException("User account is inactive");
+        }
+
+        String keycloakUserId = userCompany.getKeycloakUserId();
+
+        if (keycloakUserId == null || keycloakUserId.isBlank()) {
+            keycloakUserId = keycloakService.findUserIdByEmail(normalizedEmail);
+        }
+
+        if (keycloakUserId == null) {
+            throw new RuntimeException("User was not found in Keycloak");
+        }
+
+        keycloakService.sendUpdatePasswordEmail(keycloakUserId);
+
+        return "Password reset email sent successfully.";
+    }
 }
