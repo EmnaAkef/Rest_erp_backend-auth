@@ -27,7 +27,7 @@ public class FinanceKpiService {
 
     public FinanceKpiResponse getFinanceKpis(LocalDate startDate, LocalDate endDate) {
 
-        Integer companyKey = getRequiredCompanyKey();
+        Integer companyKey = TenantContext.getCompanyKey();
 
         String currency = commonRepository.getCompanyCurrency(companyKey);
 
@@ -122,7 +122,7 @@ public class FinanceKpiService {
     }
 
     public List<FinanceRevenueProfitTrendItem> getRevenueProfitTrend(LocalDate startDate, LocalDate endDate) {
-        Integer companyKey = getRequiredCompanyKey();
+        Integer companyKey = TenantContext.getCompanyKey();
 
         Integer startDateKey = toDateKey(startDate);
         Integer endDateKey = toDateKey(endDate);
@@ -130,7 +130,7 @@ public class FinanceKpiService {
         return financeKpiRepository.getRevenueProfitTrend(companyKey, startDateKey, endDateKey);
     }
     public List<FinanceCashFlowTrendItem> getCashFlowTrend(LocalDate startDate, LocalDate endDate) {
-        Integer companyKey = getRequiredCompanyKey();
+        Integer companyKey = TenantContext.getCompanyKey();
 
         Integer startDateKey = toDateKey(startDate);
         Integer endDateKey = toDateKey(endDate);
@@ -138,7 +138,7 @@ public class FinanceKpiService {
         return financeKpiRepository.getCashFlowTrend(companyKey, startDateKey, endDateKey);
     }
     public List<FinanceOutstandingInvoiceItem> getTopOutstandingInvoices(LocalDate startDate, LocalDate endDate) {
-        Integer companyKey = getRequiredCompanyKey();
+        Integer companyKey = TenantContext.getCompanyKey();
 
         Integer startDateKey = toDateKey(startDate);
         Integer endDateKey = toDateKey(endDate);
@@ -146,7 +146,7 @@ public class FinanceKpiService {
         return financeKpiRepository.getTopOutstandingInvoices(companyKey, startDateKey, endDateKey);
     }
     public FinanceLiabilityAssetItem getLiabilityVsAssets(LocalDate startDate, LocalDate endDate) {
-        Integer companyKey = getRequiredCompanyKey();
+        Integer companyKey = TenantContext.getCompanyKey();
 
         Integer startDateKey = toDateKey(startDate);
         Integer endDateKey = toDateKey(endDate);
@@ -154,18 +154,9 @@ public class FinanceKpiService {
         return financeKpiRepository.getLiabilityVsAssets(companyKey, startDateKey, endDateKey);
     }
     public List<FinanceAssetDistributionItem> getAssetDistribution(LocalDate endDate) {
-        Integer companyKey = getRequiredCompanyKey();
+        Integer companyKey = TenantContext.getCompanyKey();
         Integer endDateKey = toDateKey(endDate);
 
         return financeKpiRepository.getAssetDistribution(companyKey, endDateKey);
-    }
-    private Integer getRequiredCompanyKey() {
-        Integer companyKey = TenantContext.getCompanyKey();
-
-        if (companyKey == null) {
-            throw new RuntimeException("Company key is missing from authenticated user");
-        }
-
-        return companyKey;
     }
 }

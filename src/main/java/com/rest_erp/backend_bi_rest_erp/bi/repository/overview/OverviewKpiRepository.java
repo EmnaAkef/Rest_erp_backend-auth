@@ -5,7 +5,7 @@ import org.springframework.stereotype.Repository;
 import com.rest_erp.backend_bi_rest_erp.bi.dto.overview.OverviewFinancialTrendItem;
 import java.util.List;
 import java.math.BigDecimal;
-
+import com.rest_erp.backend_bi_rest_erp.bi.dto.overview.OverviewFinancialTrendItem;
 import com.rest_erp.backend_bi_rest_erp.bi.dto.overview.OverviewCashSummaryItem;
 import com.rest_erp.backend_bi_rest_erp.bi.dto.overview.OverviewPipelineFunnelItem;
 import com.rest_erp.backend_bi_rest_erp.bi.dto.overview.OverviewDealStatusItem;
@@ -15,7 +15,7 @@ import com.rest_erp.backend_bi_rest_erp.bi.dto.overview.OverviewDepartmentDistri
 import com.rest_erp.backend_bi_rest_erp.bi.dto.overview.OverviewCustomerRetentionItem;
 import com.rest_erp.backend_bi_rest_erp.bi.dto.overview.OverviewTopCustomerItem;
 import com.rest_erp.backend_bi_rest_erp.bi.dto.overview.OverviewOperationalAlertItem;
-
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import com.rest_erp.backend_bi_rest_erp.bi.dto.overview.OverviewExecutiveLedgerItem;
 @Repository
@@ -242,7 +242,8 @@ public class OverviewKpiRepository {
                 (rs, rowNum) -> new OverviewCashSummaryItem(
                         rs.getBigDecimal("cash_balance"),
                         rs.getBigDecimal("inflow"),
-                        rs.getBigDecimal("outflow")
+                        rs.getBigDecimal("outflow"),
+                        rs.getBigDecimal("net_cash_flow")
                 ),
                 companyKey,
                 endDateKey,
@@ -251,27 +252,32 @@ public class OverviewKpiRepository {
                 endDateKey
         );
     }
-    public List<OverviewPipelineFunnelItem> getSalesPipelineFunnel(Integer companyKey) {
+    public List<OverviewPipelineFunnelItem> getSalesPipelineFunnel(
+            Integer companyKey,
+            Integer startDateKey,
+            Integer endDateKey
+    ) {
         String sql = """
-        SELECT
-            COALESCE(ws.status_label, 'Unknown') AS stage,
-            COALESCE(SUM(f.deal_count), 0) AS deal_count,
-            COALESCE(SUM(f.deal_value), 0) AS pipeline_value
-        FROM fact_deal f
-        LEFT JOIN dim_workstatus ws
-            ON ws.workstatus_key = f.workstatus_key
-        WHERE f.company_key = ?
-          AND COALESCE(f.is_archived, false) = false
-        GROUP BY COALESCE(ws.status_label, 'Unknown')
-        ORDER BY
-            CASE COALESCE(ws.status_label, 'Unknown')
-                WHEN 'Generated' THEN 1
-                WHEN 'Initial Contact' THEN 2
-                WHEN 'Win' THEN 3
-                WHEN 'Lost' THEN 4
-                ELSE 5
-            END
-        """;
+    SELECT
+        COALESCE(ws.status_label, 'Unknown') AS stage,
+        COALESCE(SUM(f.deal_count), 0) AS deal_count,
+        COALESCE(SUM(f.deal_value), 0) AS pipeline_value
+    FROM fact_deal f
+    LEFT JOIN dim_workstatus ws
+        ON ws.workstatus_key = f.workstatus_key
+    WHERE f.company_key = ?
+      AND f.date_key BETWEEN ? AND ?
+      AND COALESCE(f.is_archived, false) = false
+    GROUP BY COALESCE(ws.status_label, 'Unknown')
+    ORDER BY
+        CASE COALESCE(ws.status_label, 'Unknown')
+            WHEN 'Generated' THEN 1
+            WHEN 'Initial Contact' THEN 2
+            WHEN 'Win' THEN 3
+            WHEN 'Lost' THEN 4
+            ELSE 5
+        END
+    """;
 
         return jdbcTemplate.query(
                 sql,
@@ -280,7 +286,9 @@ public class OverviewKpiRepository {
                         .dealCount(rs.getLong("deal_count"))
                         .pipelineValue(rs.getBigDecimal("pipeline_value"))
                         .build(),
-                companyKey
+                companyKey,
+                startDateKey,
+                endDateKey
         );
     }
     public List<OverviewDealStatusItem> getDealStatus(Integer companyKey) {

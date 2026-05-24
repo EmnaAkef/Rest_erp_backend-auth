@@ -11,9 +11,12 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+
 public class OverviewCashSummaryItem {
 
     private BigDecimal cashBalance;
     private BigDecimal inflow;
     private BigDecimal outflow;
+    private BigDecimal netCashFlow;
+
 }
