@@ -16,6 +16,12 @@ import com.rest_erp.backend_bi_rest_erp.bi.dto.finance.FinanceLiabilityAssetItem
 import com.rest_erp.backend_bi_rest_erp.bi.dto.finance.FinanceAssetDistributionItem;
 import java.util.List;
 import com.rest_erp.backend_bi_rest_erp.bi.repository.CommonRepository;
+import com.rest_erp.backend_bi_rest_erp.bi.dto.finance.FinanceTaxPaymentItem;
+import com.rest_erp.backend_bi_rest_erp.bi.dto.finance.FinanceFilingDateItem;
+import java.util.List;
+
+import static com.rest_erp.backend_bi_rest_erp.bi.tenant.TenantContext.getCompanyKey;
+
 @Service
 @RequiredArgsConstructor
 public class FinanceKpiService {
@@ -27,7 +33,7 @@ public class FinanceKpiService {
 
     public FinanceKpiResponse getFinanceKpis(LocalDate startDate, LocalDate endDate) {
 
-        Integer companyKey = TenantContext.getCompanyKey();
+        Integer companyKey = getCompanyKey();
 
         String currency = commonRepository.getCompanyCurrency(companyKey);
 
@@ -122,7 +128,7 @@ public class FinanceKpiService {
     }
 
     public List<FinanceRevenueProfitTrendItem> getRevenueProfitTrend(LocalDate startDate, LocalDate endDate) {
-        Integer companyKey = TenantContext.getCompanyKey();
+        Integer companyKey = getCompanyKey();
 
         Integer startDateKey = toDateKey(startDate);
         Integer endDateKey = toDateKey(endDate);
@@ -130,7 +136,7 @@ public class FinanceKpiService {
         return financeKpiRepository.getRevenueProfitTrend(companyKey, startDateKey, endDateKey);
     }
     public List<FinanceCashFlowTrendItem> getCashFlowTrend(LocalDate startDate, LocalDate endDate) {
-        Integer companyKey = TenantContext.getCompanyKey();
+        Integer companyKey = getCompanyKey();
 
         Integer startDateKey = toDateKey(startDate);
         Integer endDateKey = toDateKey(endDate);
@@ -138,7 +144,7 @@ public class FinanceKpiService {
         return financeKpiRepository.getCashFlowTrend(companyKey, startDateKey, endDateKey);
     }
     public List<FinanceOutstandingInvoiceItem> getTopOutstandingInvoices(LocalDate startDate, LocalDate endDate) {
-        Integer companyKey = TenantContext.getCompanyKey();
+        Integer companyKey = getCompanyKey();
 
         Integer startDateKey = toDateKey(startDate);
         Integer endDateKey = toDateKey(endDate);
@@ -146,7 +152,7 @@ public class FinanceKpiService {
         return financeKpiRepository.getTopOutstandingInvoices(companyKey, startDateKey, endDateKey);
     }
     public FinanceLiabilityAssetItem getLiabilityVsAssets(LocalDate startDate, LocalDate endDate) {
-        Integer companyKey = TenantContext.getCompanyKey();
+        Integer companyKey = getCompanyKey();
 
         Integer startDateKey = toDateKey(startDate);
         Integer endDateKey = toDateKey(endDate);
@@ -154,9 +160,25 @@ public class FinanceKpiService {
         return financeKpiRepository.getLiabilityVsAssets(companyKey, startDateKey, endDateKey);
     }
     public List<FinanceAssetDistributionItem> getAssetDistribution(LocalDate endDate) {
-        Integer companyKey = TenantContext.getCompanyKey();
+        Integer companyKey = getCompanyKey();
         Integer endDateKey = toDateKey(endDate);
 
         return financeKpiRepository.getAssetDistribution(companyKey, endDateKey);
+    }
+
+    public List<FinanceTaxPaymentItem> getRecentTaxPayments(LocalDate startDate, LocalDate endDate) {
+        Integer companyKey = 1;
+        System.out.println("companyKey = " + companyKey);
+        System.out.println("startDate = " + startDate);
+        System.out.println("endDate = " + endDate);
+        return financeKpiRepository.getRecentTaxPayments(
+                companyKey,
+                toDateKey(startDate),
+                toDateKey(endDate)
+        );
+    }
+
+    public List<FinanceFilingDateItem> getNextFilingDates() {
+        return financeKpiRepository.getNextFilingDates();
     }
 }

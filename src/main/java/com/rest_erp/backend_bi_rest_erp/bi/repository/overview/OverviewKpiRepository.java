@@ -201,41 +201,42 @@ public class OverviewKpiRepository {
             Integer endDateKey
     ) {
         String sql = """
-        WITH cash_balance AS (
-            SELECT
-                COALESCE(SUM(f.close_balance_debit - f.close_balance_credit), 0) AS cash_balance
-            FROM fact_chart_balance_snapshot f
-            JOIN dim_chart_account a
-                ON f.chart_account_key = a.chart_key
-            WHERE f.company_key = ?
-              AND f.date_key <= ?
-              AND a.is_current = true
-              AND LOWER(a.account_type) IN (
-                    'cash and cash equivalents',
-                    'bank balance'
-              )
-        ),
-        cash_flow AS (
-            SELECT
-                COALESCE(SUM(f.debit), 0) AS inflow,
-                COALESCE(SUM(f.credit), 0) AS outflow
-            FROM fact_cash_movement f
-            JOIN dim_chart_account a
-                ON f.chart_account_key = a.chart_key
-            WHERE f.company_key = ?
-              AND f.date_key BETWEEN ? AND ?
-              AND a.is_current = true
-              AND LOWER(a.account_type) IN (
-                    'cash and cash equivalents',
-                    'bank balance'
-              )
-        )
+    WITH cash_balance AS (
         SELECT
-            cash_balance.cash_balance,
-            cash_flow.inflow,
-            cash_flow.outflow
-        FROM cash_balance, cash_flow
-        """;
+            COALESCE(SUM(f.close_balance_debit - f.close_balance_credit), 0) AS cash_balance
+        FROM fact_chart_balance_snapshot f
+        JOIN dim_chart_account a
+            ON f.chart_account_key = a.chart_key
+        WHERE f.company_key = ?
+          AND f.date_key <= ?
+          AND a.is_current = true
+          AND LOWER(a.account_type) IN (
+                'cash and cash equivalents',
+                'bank balance'
+          )
+    ),
+    cash_flow AS (
+        SELECT
+            COALESCE(SUM(f.debit), 0) AS inflow,
+            COALESCE(SUM(f.credit), 0) AS outflow
+        FROM fact_cash_movement f
+        JOIN dim_chart_account a
+            ON f.chart_account_key = a.chart_key
+        WHERE f.company_key = ?
+          AND f.date_key BETWEEN ? AND ?
+          AND a.is_current = true
+          AND LOWER(a.account_type) IN (
+                'cash and cash equivalents',
+                'bank balance'
+          )
+    )
+    SELECT
+        cash_balance.cash_balance,
+        cash_flow.inflow,
+        cash_flow.outflow,
+        cash_flow.inflow - cash_flow.outflow AS net_cash_flow
+    FROM cash_balance, cash_flow
+    """;
 
         return jdbcTemplate.queryForObject(
                 sql,
@@ -258,26 +259,25 @@ public class OverviewKpiRepository {
             Integer endDateKey
     ) {
         String sql = """
+SELECT
+    stage,
+    COALESCE(SUM(deal_count), 0) AS deal_count,
+    COALESCE(SUM(deal_value), 0) AS pipeline_value
+FROM (
     SELECT
         COALESCE(ws.status_label, 'Unknown') AS stage,
-        COALESCE(SUM(f.deal_count), 0) AS deal_count,
-        COALESCE(SUM(f.deal_value), 0) AS pipeline_value
+        f.deal_count,
+        f.deal_value
     FROM fact_deal f
     LEFT JOIN dim_workstatus ws
         ON ws.workstatus_key = f.workstatus_key
     WHERE f.company_key = ?
-      AND f.date_key BETWEEN ? AND ?
+      AND f.close_date_key BETWEEN ? AND ?
       AND COALESCE(f.is_archived, false) = false
-    GROUP BY COALESCE(ws.status_label, 'Unknown')
-    ORDER BY
-        CASE COALESCE(ws.status_label, 'Unknown')
-            WHEN 'Generated' THEN 1
-            WHEN 'Initial Contact' THEN 2
-            WHEN 'Win' THEN 3
-            WHEN 'Lost' THEN 4
-            ELSE 5
-        END
-    """;
+) x
+GROUP BY stage
+ORDER BY pipeline_value DESC
+""";
 
         return jdbcTemplate.query(
                 sql,

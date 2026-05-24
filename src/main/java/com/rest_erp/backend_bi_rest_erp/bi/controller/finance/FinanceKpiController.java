@@ -13,6 +13,10 @@ import com.rest_erp.backend_bi_rest_erp.bi.dto.finance.FinanceOutstandingInvoice
 import com.rest_erp.backend_bi_rest_erp.bi.dto.finance.FinanceLiabilityAssetItem;
 import com.rest_erp.backend_bi_rest_erp.bi.dto.finance.FinanceAssetDistributionItem;
 import java.util.List;
+import com.rest_erp.backend_bi_rest_erp.bi.dto.finance.FinanceTaxPaymentItem;
+import com.rest_erp.backend_bi_rest_erp.bi.dto.finance.FinanceFilingDateItem;
+import java.util.List;
+import java.time.LocalDate;
 @RestController
 @RequestMapping("/api/bi/finance")
 @CrossOrigin(origins = "*")
@@ -76,5 +80,18 @@ public class FinanceKpiController {
         return ResponseEntity.ok(
                 financeKpiService.getAssetDistribution(endDate)
         );
+    }
+
+    @GetMapping("/recent-tax-payments")
+    public List<FinanceTaxPaymentItem> getRecentTaxPayments(
+            @RequestParam LocalDate startDate,
+            @RequestParam LocalDate endDate
+    ) {
+        return financeKpiService.getRecentTaxPayments(startDate, endDate);
+    }
+
+    @GetMapping("/next-filing-dates")
+    public List<FinanceFilingDateItem> getNextFilingDates() {
+        return financeKpiService.getNextFilingDates();
     }
 }

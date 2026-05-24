@@ -1,15 +1,12 @@
 package com.rest_erp.backend_bi_rest_erp.bi.repository.finance;
 
+import com.rest_erp.backend_bi_rest_erp.bi.dto.finance.*;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
-import com.rest_erp.backend_bi_rest_erp.bi.dto.finance.FinanceRevenueProfitTrendItem;
-import com.rest_erp.backend_bi_rest_erp.bi.dto.finance.FinanceCashFlowTrendItem;
+import java.time.LocalDate;
 import java.util.List;
-import com.rest_erp.backend_bi_rest_erp.bi.dto.finance.FinanceOutstandingInvoiceItem;
-import com.rest_erp.backend_bi_rest_erp.bi.dto.finance.FinanceLiabilityAssetItem;
-import com.rest_erp.backend_bi_rest_erp.bi.dto.finance.FinanceAssetDistributionItem;
 import java.sql.Date;
 @Repository
 public class FinanceKpiRepository {
@@ -501,6 +498,54 @@ public class FinanceKpiRepository {
                 ),
                 companyKey,
                 endDateKey
+        );
+    }
+
+
+
+    public List<FinanceTaxPaymentItem> getRecentTaxPayments(
+            Integer companyKey,
+            Integer startDateKey,
+            Integer endDateKey
+    ) {
+        String sql = """
+        SELECT
+            'TAX' AS code,
+            COALESCE(v.vendor_name, 'Tax Payment') AS label,
+            COALESCE(SUM(fb.tax), 0) AS amount
+        FROM fact_bill fb
+        LEFT JOIN dim_vendor v
+            ON fb.vendor_key = v.vendor_key
+        WHERE fb.company_key = ?
+          AND fb.date_key BETWEEN ? AND ?
+          AND COALESCE(fb.tax, 0) > 0
+        GROUP BY COALESCE(v.vendor_name, 'Tax Payment')
+        ORDER BY amount DESC
+        LIMIT 5
+    """;
+
+        return jdbcTemplate.query(
+                sql,
+                (rs, rowNum) -> new FinanceTaxPaymentItem(
+                        rs.getString("code"),
+                        rs.getString("label"),
+                        rs.getBigDecimal("amount")
+                ),
+                companyKey,
+                startDateKey,
+                endDateKey
+        );
+    }
+
+    public List<FinanceFilingDateItem> getNextFilingDates() {
+        LocalDate today = LocalDate.now();
+
+        LocalDate nextVatDate = today.plusMonths(1).withDayOfMonth(15);
+        LocalDate nextIncomeTaxDate = today.plusMonths(2).withDayOfMonth(30);
+
+        return List.of(
+                new FinanceFilingDateItem("Quarterly VAT Return", nextVatDate.toString()),
+                new FinanceFilingDateItem("Income Tax Provisional", nextIncomeTaxDate.toString())
         );
     }
 }
