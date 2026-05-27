@@ -39,12 +39,12 @@ public class OverviewKpiRepository {
 
     public Integer getTotalEmployees(Integer companyKey) {
         String sql = """
-            SELECT COUNT(*)
-            FROM dim_user
-            WHERE company_key = ?
-              AND is_current = true
-              AND COALESCE(active, true) = true
-            """;
+        SELECT COUNT(DISTINCT user_id)
+        FROM dim_user
+        WHERE company_key = ?
+          AND type = 'EMPLOYEE'
+          AND is_current = true
+        """;
 
         return queryForInteger(sql, companyKey);
     }
@@ -231,10 +231,11 @@ public class OverviewKpiRepository {
               )
         )
         SELECT
-            cash_balance.cash_balance,
-            cash_flow.inflow,
-            cash_flow.outflow
-        FROM cash_balance, cash_flow
+                        cash_balance.cash_balance,
+                        cash_flow.inflow,
+                        cash_flow.outflow,
+                        cash_flow.inflow - cash_flow.outflow AS net_cash_flow
+                    FROM cash_balance, cash_flow
         """;
 
         return jdbcTemplate.queryForObject(
