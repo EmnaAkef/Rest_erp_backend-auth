@@ -11,6 +11,8 @@ public class KeycloakProperties {
     private String realm;
     private String clientId;
     private String clientSecret;
+    private String frontendClientId;
+    private String passwordResetRedirectUri;
 
     public String getServerUrl() {
         return serverUrl;
@@ -42,5 +44,21 @@ public class KeycloakProperties {
 
     public void setClientSecret(String clientSecret) {
         this.clientSecret = clientSecret;
+    }
+
+    public String getFrontendClientId() {
+        return frontendClientId;
+    }
+
+    public void setFrontendClientId(String frontendClientId) {
+        this.frontendClientId = frontendClientId;
+    }
+
+    public String getPasswordResetRedirectUri() {
+        return passwordResetRedirectUri;
+    }
+
+    public void setPasswordResetRedirectUri(String passwordResetRedirectUri) {
+        this.passwordResetRedirectUri = passwordResetRedirectUri;
     }
 }

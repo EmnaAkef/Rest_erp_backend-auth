@@ -548,4 +548,127 @@ public class FinanceKpiRepository {
                 new FinanceFilingDateItem("Income Tax Provisional", nextIncomeTaxDate.toString())
         );
     }
+    public List<String> getCustomerNames(Integer companyKey) {
+        String sql = """
+        SELECT DISTINCT
+            COALESCE(c.organization_name, c.contact_name) AS name
+        FROM dim_customer c
+        WHERE c.company_key = ?
+          AND c.is_current = true
+          AND COALESCE(c.organization_name, c.contact_name) IS NOT NULL
+        ORDER BY name
+        """;
+
+        return jdbcTemplate.queryForList(sql, String.class, companyKey);
+    }
+    public List<String> getCustomerCategories(Integer companyKey) {
+        String sql = """
+        SELECT DISTINCT
+            c.client_category AS category
+        FROM dim_customer c
+        WHERE c.company_key = ?
+          AND c.is_current = true
+          AND c.client_category IS NOT NULL
+        ORDER BY category
+        """;
+
+        return jdbcTemplate.queryForList(sql, String.class, companyKey);
+    }
+    public List<String> getVendorNames(Integer companyKey) {
+        String sql = """
+        SELECT DISTINCT
+            v.vendor_name AS name
+        FROM dim_vendor v
+        WHERE v.company_key = ?
+          AND v.is_current = true
+          AND v.vendor_name IS NOT NULL
+        ORDER BY name
+        """;
+
+        return jdbcTemplate.queryForList(sql, String.class, companyKey);
+    }
+    public List<String> getVendorIndustries(Integer companyKey) {
+        String sql = """
+        SELECT DISTINCT
+            v.industry AS industry
+        FROM dim_vendor v
+        WHERE v.company_key = ?
+          AND v.is_current = true
+          AND v.industry IS NOT NULL
+        ORDER BY industry
+        """;
+
+        return jdbcTemplate.queryForList(sql, String.class, companyKey);
+    }
+    public List<String> getAccountNames(Integer companyKey) {
+        String sql = """
+        SELECT DISTINCT
+            a.account_name AS name
+        FROM dim_chart_account a
+        WHERE a.company_key = ?
+          AND a.is_current = true
+          AND a.account_name IS NOT NULL
+        ORDER BY name
+        """;
+
+        return jdbcTemplate.queryForList(sql, String.class, companyKey);
+    }
+    public List<String> searchFinanceFilterOptions(Integer companyKey, String field, String q) {
+        String search = q == null ? "" : q.trim().toLowerCase();
+
+        String sql;
+
+        switch (field) {
+            case "customerName" -> sql = """
+            SELECT DISTINCT COALESCE(c.organization_name, c.contact_name) AS value
+            FROM dim_customer c
+            WHERE c.company_key = ?
+              AND c.is_current = true
+              AND COALESCE(c.organization_name, c.contact_name) IS NOT NULL
+              AND LOWER(COALESCE(c.organization_name, c.contact_name)) LIKE ?
+            ORDER BY value
+        """;
+
+            case "vendorName" -> sql = """
+            SELECT DISTINCT v.vendor_name AS value
+            FROM dim_vendor v
+            WHERE v.company_key = ?
+              AND v.is_current = true
+              AND v.vendor_name IS NOT NULL
+              AND LOWER(v.vendor_name) LIKE ?
+            ORDER BY value
+        """;
+
+            case "accountName" -> sql = """
+            SELECT DISTINCT a.account_name AS value
+            FROM dim_chart_account a
+            WHERE a.company_key = ?
+              AND a.is_current = true
+              AND a.account_name IS NOT NULL
+              AND LOWER(a.account_name) LIKE ?
+            ORDER BY value
+        """;
+
+            case "vendorIndustry" -> sql = """
+            SELECT DISTINCT v.industry AS value
+            FROM dim_vendor v
+            WHERE v.company_key = ?
+              AND v.is_current = true
+              AND v.industry IS NOT NULL
+              AND LOWER(v.industry) LIKE ?
+            ORDER BY value
+        """;
+
+            default -> {
+                return List.of();
+            }
+        }
+
+        return jdbcTemplate.queryForList(
+                sql,
+                String.class,
+                companyKey,
+                search + "%"
+        );
+    }
 }

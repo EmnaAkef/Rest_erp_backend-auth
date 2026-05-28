@@ -6,6 +6,8 @@ keycloak:
   realm: rest-erp
   client-id: rest-erp-backend
   client-secret: uc6Wfvp5EUx5j6uehzGPzqFpSNJ3Vhap
+  frontend-client-id: rest-erp-frontend
+  password-reset-redirect-uri: http://localhost:4200/login
 
 spring:
   application:

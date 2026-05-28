@@ -5,7 +5,7 @@ import com.rest_erp.backend_bi_rest_erp.bi.repository.finance.FinanceKpiReposito
 import com.rest_erp.backend_bi_rest_erp.bi.tenant.TenantContext;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-
+import com.rest_erp.backend_bi_rest_erp.bi.dto.finance.FinanceFilterOptionsResponse;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
@@ -167,10 +167,12 @@ public class FinanceKpiService {
     }
 
     public List<FinanceTaxPaymentItem> getRecentTaxPayments(LocalDate startDate, LocalDate endDate) {
-        Integer companyKey = 1;
+        Integer companyKey = getCompanyKey();
+
         System.out.println("companyKey = " + companyKey);
         System.out.println("startDate = " + startDate);
         System.out.println("endDate = " + endDate);
+
         return financeKpiRepository.getRecentTaxPayments(
                 companyKey,
                 toDateKey(startDate),
@@ -180,5 +182,26 @@ public class FinanceKpiService {
 
     public List<FinanceFilingDateItem> getNextFilingDates() {
         return financeKpiRepository.getNextFilingDates();
+    }
+
+    public FinanceFilterOptionsResponse getFinanceFilterOptions() {
+        Integer companyKey = getCompanyKey();
+
+        return new FinanceFilterOptionsResponse(
+                financeKpiRepository.getCustomerNames(companyKey),
+                financeKpiRepository.getCustomerCategories(companyKey),
+                financeKpiRepository.getVendorNames(companyKey),
+                financeKpiRepository.getVendorIndustries(companyKey),
+                financeKpiRepository.getAccountNames(companyKey)
+        );
+    }
+    public List<String> searchFinanceFilterOptions(String field, String q) {
+        Integer companyKey = getCompanyKey();
+
+        return financeKpiRepository.searchFinanceFilterOptions(
+                companyKey,
+                field,
+                q == null ? "" : q.trim()
+        );
     }
 }

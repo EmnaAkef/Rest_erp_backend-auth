@@ -17,6 +17,7 @@ import com.rest_erp.backend_bi_rest_erp.bi.dto.finance.FinanceTaxPaymentItem;
 import com.rest_erp.backend_bi_rest_erp.bi.dto.finance.FinanceFilingDateItem;
 import java.util.List;
 import java.time.LocalDate;
+import com.rest_erp.backend_bi_rest_erp.bi.dto.finance.FinanceFilterOptionsResponse;
 @RestController
 @RequestMapping("/api/bi/finance")
 @CrossOrigin(origins = "*")
@@ -93,5 +94,18 @@ public class FinanceKpiController {
     @GetMapping("/next-filing-dates")
     public List<FinanceFilingDateItem> getNextFilingDates() {
         return financeKpiService.getNextFilingDates();
+    }
+    @GetMapping("/filter-options")
+    public ResponseEntity<FinanceFilterOptionsResponse> getFinanceFilterOptions() {
+        return ResponseEntity.ok(financeKpiService.getFinanceFilterOptions());
+    }
+    @GetMapping("/filter-options/search")
+    public ResponseEntity<List<String>> searchFinanceFilterOptions(
+            @RequestParam String field,
+            @RequestParam(defaultValue = "") String q
+    ) {
+        return ResponseEntity.ok(
+                financeKpiService.searchFinanceFilterOptions(field, q)
+        );
     }
 }

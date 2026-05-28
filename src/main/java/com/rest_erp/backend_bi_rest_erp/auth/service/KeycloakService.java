@@ -106,16 +106,14 @@ public class KeycloakService {
     public void sendUpdatePasswordEmail(String userId) {
         Keycloak keycloak = getKeycloakInstance();
 
-        String clientId = properties.getClientId();
-        String redirectUri = "http://localhost:4200/login";
         int lifespan = 3600;
 
         keycloak.realm(properties.getRealm())
                 .users()
                 .get(userId)
                 .executeActionsEmail(
-                        clientId,
-                        redirectUri,
+                        properties.getFrontendClientId(),
+                        properties.getPasswordResetRedirectUri(),
                         lifespan,
                         List.of("UPDATE_PASSWORD")
                 );

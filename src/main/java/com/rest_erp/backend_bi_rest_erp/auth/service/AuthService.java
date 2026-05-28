@@ -11,6 +11,12 @@ import com.rest_erp.backend_bi_rest_erp.company.dto.CompanyInfo;
 import com.rest_erp.backend_bi_rest_erp.company.service.CompanyLookupService;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.rest_erp.backend_bi_rest_erp.auth.entity.AppRole;
+
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 
 import java.util.List;
 import java.util.Map;
@@ -23,6 +29,7 @@ public class AuthService {
     private final FileStorageService fileStorageService;
     private final AppUserCompanyRepository appUserCompanyRepository;
     private final KeycloakService keycloakService;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     public AuthService(
             UserRegistrationRequestRepository requestRepository,
@@ -136,9 +143,18 @@ public class AuthService {
 
         Map<String, Object> tokenResponse = keycloakService.login(email.trim(), password);
 
+        String accessToken = (String) tokenResponse.get("access_token");
+
+        AppRole keycloakRole = extractRoleFromAccessToken(accessToken);
+
+        if (keycloakRole != null && userCompany.getRole() != keycloakRole) {
+            userCompany.setRole(keycloakRole);
+            userCompany = appUserCompanyRepository.save(userCompany);
+        }
+
         AuthResponse response = new AuthResponse();
 
-        response.setAccessToken((String) tokenResponse.get("access_token"));
+        response.setAccessToken(accessToken);
         response.setRefreshToken((String) tokenResponse.get("refresh_token"));
         response.setTokenType((String) tokenResponse.get("token_type"));
 
@@ -187,5 +203,68 @@ public class AuthService {
         keycloakService.sendUpdatePasswordEmail(keycloakUserId);
 
         return "Password reset email sent successfully.";
+    }
+
+    private AppRole extractRoleFromAccessToken(String accessToken) {
+        try {
+            if (accessToken == null || accessToken.isBlank()) {
+                return null;
+            }
+
+            String[] parts = accessToken.split("\\.");
+
+            if (parts.length < 2) {
+                return null;
+            }
+
+            String payloadJson = new String(
+                    Base64.getUrlDecoder().decode(parts[1]),
+                    StandardCharsets.UTF_8
+            );
+
+            JsonNode payload = objectMapper.readTree(payloadJson);
+            JsonNode rolesNode = payload.path("realm_access").path("roles");
+
+            if (!rolesNode.isArray()) {
+                return null;
+            }
+
+            boolean hasSuperAdmin = false;
+            boolean hasCompanyAdmin = false;
+            boolean hasUser = false;
+
+            for (JsonNode roleNode : rolesNode) {
+                String role = roleNode.asText();
+
+                if ("SUPER_ADMIN".equals(role)) {
+                    hasSuperAdmin = true;
+                }
+
+                if ("COMPANY_ADMIN".equals(role)) {
+                    hasCompanyAdmin = true;
+                }
+
+                if ("USER".equals(role)) {
+                    hasUser = true;
+                }
+            }
+
+            if (hasSuperAdmin) {
+                return AppRole.SUPER_ADMIN;
+            }
+
+            if (hasCompanyAdmin) {
+                return AppRole.COMPANY_ADMIN;
+            }
+
+            if (hasUser) {
+                return AppRole.USER;
+            }
+
+            return null;
+
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to extract role from Keycloak token", e);
+        }
     }
 }
