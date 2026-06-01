@@ -7,6 +7,11 @@ public record FinanceFilterOptionsResponse(
         List<String> customerCategories,
         List<String> vendorNames,
         List<String> vendorIndustries,
-        List<String> accountNames
-) {
-}
+        List<String> accountNames,
+
+        List<String> invoiceStatuses,
+        List<String> statusGroups,
+        List<String> accountTypes,
+        List<String> transactionTypes,
+        List<String> assetTypes
+) {}

@@ -1,23 +1,23 @@
 package com.rest_erp.backend_bi_rest_erp.bi.service.finance;
 
+import com.rest_erp.backend_bi_rest_erp.bi.dto.finance.FinanceAssetDistributionItem;
+import com.rest_erp.backend_bi_rest_erp.bi.dto.finance.FinanceCashFlowTrendItem;
+import com.rest_erp.backend_bi_rest_erp.bi.dto.finance.FinanceFilingDateItem;
+import com.rest_erp.backend_bi_rest_erp.bi.dto.finance.FinanceFilterOptionsResponse;
+import com.rest_erp.backend_bi_rest_erp.bi.dto.finance.FinanceFilterRequest;
 import com.rest_erp.backend_bi_rest_erp.bi.dto.finance.FinanceKpiResponse;
+import com.rest_erp.backend_bi_rest_erp.bi.dto.finance.FinanceLiabilityAssetItem;
+import com.rest_erp.backend_bi_rest_erp.bi.dto.finance.FinanceOutstandingInvoiceItem;
+import com.rest_erp.backend_bi_rest_erp.bi.dto.finance.FinanceRevenueProfitTrendItem;
+import com.rest_erp.backend_bi_rest_erp.bi.dto.finance.FinanceTaxPaymentItem;
+import com.rest_erp.backend_bi_rest_erp.bi.repository.CommonRepository;
 import com.rest_erp.backend_bi_rest_erp.bi.repository.finance.FinanceKpiRepository;
-import com.rest_erp.backend_bi_rest_erp.bi.tenant.TenantContext;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import com.rest_erp.backend_bi_rest_erp.bi.dto.finance.FinanceFilterOptionsResponse;
+
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
-import com.rest_erp.backend_bi_rest_erp.bi.dto.finance.FinanceRevenueProfitTrendItem;
-import com.rest_erp.backend_bi_rest_erp.bi.dto.finance.FinanceCashFlowTrendItem;
-import com.rest_erp.backend_bi_rest_erp.bi.dto.finance.FinanceOutstandingInvoiceItem;
-import com.rest_erp.backend_bi_rest_erp.bi.dto.finance.FinanceLiabilityAssetItem;
-import com.rest_erp.backend_bi_rest_erp.bi.dto.finance.FinanceAssetDistributionItem;
-import java.util.List;
-import com.rest_erp.backend_bi_rest_erp.bi.repository.CommonRepository;
-import com.rest_erp.backend_bi_rest_erp.bi.dto.finance.FinanceTaxPaymentItem;
-import com.rest_erp.backend_bi_rest_erp.bi.dto.finance.FinanceFilingDateItem;
 import java.util.List;
 
 import static com.rest_erp.backend_bi_rest_erp.bi.tenant.TenantContext.getCompanyKey;
@@ -29,9 +29,7 @@ public class FinanceKpiService {
     private final CommonRepository commonRepository;
     private final FinanceKpiRepository financeKpiRepository;
 
-
-
-    public FinanceKpiResponse getFinanceKpis(LocalDate startDate, LocalDate endDate) {
+    public FinanceKpiResponse getFinanceKpis(LocalDate startDate, LocalDate endDate, FinanceFilterRequest filters) {
 
         Integer companyKey = getCompanyKey();
 
@@ -40,33 +38,34 @@ public class FinanceKpiService {
         Integer startDateKey = toDateKey(startDate);
         Integer endDateKey = toDateKey(endDate);
 
-        BigDecimal totalRevenue = financeKpiRepository.getTotalRevenue(companyKey, startDateKey, endDateKey);
-        BigDecimal totalExpenses = financeKpiRepository.getTotalExpenses(companyKey, startDateKey, endDateKey);
+        BigDecimal totalRevenue = financeKpiRepository.getTotalRevenue(companyKey, startDateKey, endDateKey, filters);
+        BigDecimal totalExpenses = financeKpiRepository.getTotalExpenses(companyKey, startDateKey, endDateKey, filters);
 
         BigDecimal netProfit = totalRevenue.subtract(totalExpenses);
         BigDecimal grossMarginPercentage = calculateGrossMargin(totalRevenue, totalExpenses);
 
-        BigDecimal cashBalance = financeKpiRepository.getCashBalance(companyKey, startDateKey, endDateKey);
-        BigDecimal bankAccountBalance = financeKpiRepository.getBankAccountBalance(companyKey, startDateKey, endDateKey);
-        BigDecimal totalLiabilities = financeKpiRepository.getTotalLiabilities(companyKey, startDateKey, endDateKey);
+        BigDecimal cashBalance = financeKpiRepository.getCashBalance(companyKey, startDateKey, endDateKey, filters);
+        BigDecimal bankAccountBalance = financeKpiRepository.getBankAccountBalance(companyKey, startDateKey, endDateKey, filters);
+        BigDecimal totalLiabilities = financeKpiRepository.getTotalLiabilities(companyKey, startDateKey, endDateKey, filters);
 
-        BigDecimal accountsReceivable = financeKpiRepository.getAccountsReceivable(companyKey, startDateKey, endDateKey);
-        BigDecimal accountsPayable = financeKpiRepository.getAccountsPayable(companyKey, startDateKey, endDateKey);
+        BigDecimal accountsReceivable = financeKpiRepository.getAccountsReceivable(companyKey, startDateKey, endDateKey, filters);
+        BigDecimal accountsPayable = financeKpiRepository.getAccountsPayable(companyKey, startDateKey, endDateKey, filters);
 
-        Integer numberOfOpenInvoices = financeKpiRepository.getNumberOfOpenInvoices(companyKey, startDateKey, endDateKey);
-        Integer dueInvoices = financeKpiRepository.getDueInvoices(companyKey, startDateKey, endDateKey);
+        Integer numberOfOpenInvoices = financeKpiRepository.getNumberOfOpenInvoices(companyKey, startDateKey, endDateKey, filters);
+        Integer dueInvoices = financeKpiRepository.getDueInvoices(companyKey, startDateKey, endDateKey, filters);
 
-        BigDecimal assetValue = financeKpiRepository.getAssetValue(companyKey, startDateKey, endDateKey);
-        BigDecimal depreciationExpense = financeKpiRepository.getDepreciationExpense(companyKey, startDateKey, endDateKey);
+        BigDecimal assetValue = financeKpiRepository.getAssetValue(companyKey, startDateKey, endDateKey, filters);
+        BigDecimal depreciationExpense = financeKpiRepository.getDepreciationExpense(companyKey, startDateKey, endDateKey, filters);
 
-        BigDecimal vatCollected = financeKpiRepository.getVatCollected(companyKey, startDateKey, endDateKey);
-        BigDecimal vatFromBills = financeKpiRepository.getVatFromBills(companyKey, startDateKey, endDateKey);
+        BigDecimal vatCollected = financeKpiRepository.getVatCollected(companyKey, startDateKey, endDateKey, filters);
+        BigDecimal vatFromBills = financeKpiRepository.getVatFromBills(companyKey, startDateKey, endDateKey, filters);
         BigDecimal vatPayable = vatCollected.subtract(vatFromBills);
 
         BigDecimal currentLiabilities = financeKpiRepository.getCurrentLiabilities(
                 companyKey,
                 startDateKey,
-                endDateKey
+                endDateKey,
+                filters
         );
 
         BigDecimal liquidityRatio = calculateLiquidityRatio(
@@ -127,56 +126,53 @@ public class FinanceKpiService {
                 + date.getDayOfMonth();
     }
 
-    public List<FinanceRevenueProfitTrendItem> getRevenueProfitTrend(LocalDate startDate, LocalDate endDate) {
+    public List<FinanceRevenueProfitTrendItem> getRevenueProfitTrend(LocalDate startDate, LocalDate endDate, FinanceFilterRequest filters) {
         Integer companyKey = getCompanyKey();
 
         Integer startDateKey = toDateKey(startDate);
         Integer endDateKey = toDateKey(endDate);
 
-        return financeKpiRepository.getRevenueProfitTrend(companyKey, startDateKey, endDateKey);
+        return financeKpiRepository.getRevenueProfitTrend(companyKey, startDateKey, endDateKey, filters);
     }
-    public List<FinanceCashFlowTrendItem> getCashFlowTrend(LocalDate startDate, LocalDate endDate) {
+    public List<FinanceCashFlowTrendItem> getCashFlowTrend(LocalDate startDate, LocalDate endDate, FinanceFilterRequest filters) {
         Integer companyKey = getCompanyKey();
 
         Integer startDateKey = toDateKey(startDate);
         Integer endDateKey = toDateKey(endDate);
 
-        return financeKpiRepository.getCashFlowTrend(companyKey, startDateKey, endDateKey);
+        return financeKpiRepository.getCashFlowTrend(companyKey, startDateKey, endDateKey, filters);
     }
-    public List<FinanceOutstandingInvoiceItem> getTopOutstandingInvoices(LocalDate startDate, LocalDate endDate) {
+    public List<FinanceOutstandingInvoiceItem> getTopOutstandingInvoices(LocalDate startDate, LocalDate endDate, FinanceFilterRequest filters) {
         Integer companyKey = getCompanyKey();
 
         Integer startDateKey = toDateKey(startDate);
         Integer endDateKey = toDateKey(endDate);
 
-        return financeKpiRepository.getTopOutstandingInvoices(companyKey, startDateKey, endDateKey);
+        return financeKpiRepository.getTopOutstandingInvoices(companyKey, startDateKey, endDateKey, filters);
     }
-    public FinanceLiabilityAssetItem getLiabilityVsAssets(LocalDate startDate, LocalDate endDate) {
+    public FinanceLiabilityAssetItem getLiabilityVsAssets(LocalDate startDate, LocalDate endDate, FinanceFilterRequest filters) {
         Integer companyKey = getCompanyKey();
 
         Integer startDateKey = toDateKey(startDate);
         Integer endDateKey = toDateKey(endDate);
 
-        return financeKpiRepository.getLiabilityVsAssets(companyKey, startDateKey, endDateKey);
+        return financeKpiRepository.getLiabilityVsAssets(companyKey, startDateKey, endDateKey, filters);
     }
-    public List<FinanceAssetDistributionItem> getAssetDistribution(LocalDate endDate) {
+    public List<FinanceAssetDistributionItem> getAssetDistribution(LocalDate endDate, FinanceFilterRequest filters) {
         Integer companyKey = getCompanyKey();
         Integer endDateKey = toDateKey(endDate);
 
-        return financeKpiRepository.getAssetDistribution(companyKey, endDateKey);
+        return financeKpiRepository.getAssetDistribution(companyKey, endDateKey, filters);
     }
 
-    public List<FinanceTaxPaymentItem> getRecentTaxPayments(LocalDate startDate, LocalDate endDate) {
+    public List<FinanceTaxPaymentItem> getRecentTaxPayments(LocalDate startDate, LocalDate endDate, FinanceFilterRequest filters) {
         Integer companyKey = getCompanyKey();
-
-        System.out.println("companyKey = " + companyKey);
-        System.out.println("startDate = " + startDate);
-        System.out.println("endDate = " + endDate);
 
         return financeKpiRepository.getRecentTaxPayments(
                 companyKey,
                 toDateKey(startDate),
-                toDateKey(endDate)
+                toDateKey(endDate),
+                filters
         );
     }
 
@@ -186,14 +182,7 @@ public class FinanceKpiService {
 
     public FinanceFilterOptionsResponse getFinanceFilterOptions() {
         Integer companyKey = getCompanyKey();
-
-        return new FinanceFilterOptionsResponse(
-                financeKpiRepository.getCustomerNames(companyKey),
-                financeKpiRepository.getCustomerCategories(companyKey),
-                financeKpiRepository.getVendorNames(companyKey),
-                financeKpiRepository.getVendorIndustries(companyKey),
-                financeKpiRepository.getAccountNames(companyKey)
-        );
+        return financeKpiRepository.getFinanceFilterOptions(companyKey);
     }
     public List<String> searchFinanceFilterOptions(String field, String q) {
         Integer companyKey = getCompanyKey();

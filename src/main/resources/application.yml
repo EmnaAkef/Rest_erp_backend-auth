@@ -5,7 +5,8 @@ keycloak:
   server-url: http://localhost:8090
   realm: rest-erp
   client-id: rest-erp-backend
-  client-secret: uc6Wfvp5EUx5j6uehzGPzqFpSNJ3Vhap
+  client-secret: Xv1X7Kd9o6djRfqceqW3EtH9Hb1fTrD8
+  #client-secret: uc6Wfvp5EUx5j6uehzGPzqFpSNJ3Vhap
   frontend-client-id: rest-erp-frontend
   password-reset-redirect-uri: http://localhost:4200/login
 
@@ -15,8 +16,8 @@ spring:
   datasource:
     url: jdbc:postgresql://localhost:5432/rest_erp_dw
     username: postgres
-    #password: Akef123*
-    password: Messaoud123!
+    password: Akef123*
+    #password: Messaoud123!
     driver-class-name: org.postgresql.Driver
 
   jpa:
